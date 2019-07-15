@@ -17,7 +17,7 @@ module.exports = {
   ],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
-    'worker-loader!@/workers/bot.worker': '<rootDir>/tests/mocks/bot.worker'
+    'worker-loader!@/worker/glue.worker': '<rootDir>/tests/mocks/glue.worker'
   },
   snapshotSerializers: [
     'jest-serializer-vue'

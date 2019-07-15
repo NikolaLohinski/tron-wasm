@@ -42,5 +42,6 @@ export interface WEvent extends MessageEvent {
 export interface IBotWorker {
     postMessage: (message: WMessage) => void;
     onmessage: (event: WEvent) => void;
+    onerror: (err: Error) => void;
     terminate: () => void;
 }

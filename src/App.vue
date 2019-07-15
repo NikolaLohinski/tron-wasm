@@ -4,15 +4,18 @@
 </template>
 
 <script lang="ts">
-import Bot from '@/engine/Bot';
+import Game from '@/engine/Game';
 import { Component, Vue } from 'vue-property-decorator';
 import { generateUUID } from '@/common/utils';
 
 @Component
 export default class App extends Vue {
   private mounted() {
-    const bot: Bot = new Bot(generateUUID());
-    bot.boot(generateUUID());
+    const game: Game = new Game(15, 15);
+    game.start().then(() => {
+      // tslint:disable-next-line
+      console.log('[VUE]: game has started', game);
+    });
   }
 }
 </script>

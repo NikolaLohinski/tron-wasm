@@ -1,4 +1,4 @@
-import { UUID } from '@/common/types';
+import { UUID, PLAYER_TYPE } from '@/common/types';
 
 export const enum NATIVE_WORKER_MESSAGE_TYPE {
     MESSAGE = 'message',
@@ -20,6 +20,7 @@ interface WBaseMessage {
 
 export interface WBootMessage extends WBaseMessage {
     type: MESSAGE_TYPE.BOOT;
+    playerType: PLAYER_TYPE;
 }
 
 export interface WErrorMessage extends WBaseMessage {
@@ -45,12 +46,12 @@ export interface WEvent extends MessageEvent {
 }
 
 export interface IWorker {
-    postMessage: (message: WBootMessage | WRequestMessage) => void;
-    addEventListener: (type: NATIVE_WORKER_MESSAGE_TYPE, callback: (event: WEvent) => void) => void;
-    terminate: () => void;
+    postMessage(message: WBootMessage | WRequestMessage): void;
+    addEventListener(type: NATIVE_WORKER_MESSAGE_TYPE, callback: (event: WEvent) => void): void;
+    terminate(): void;
 }
 
 export interface IWorkerContext {
-    postMessage: (message: WErrorMessage | WResultMessage) => void;
     onmessage: (event: WEvent) => void;
+    postMessage(message: WErrorMessage | WResultMessage): void;
 }

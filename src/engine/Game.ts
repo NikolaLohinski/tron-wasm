@@ -1,6 +1,6 @@
 import Bot from '@/engine/Bot';
 import { generateUUID } from '@/common/utils';
-import { UUID } from '@/common/types';
+import { UUID, PLAYER_TYPE } from '@/common/types';
 
 export const GAME_NUMBER_PLAYERS = 2;
 
@@ -17,7 +17,7 @@ export default class Game {
         this.players = {};
         for (let i = 0; i < GAME_NUMBER_PLAYERS; i++) {
             const id = generateUUID();
-            this.players[id] = new Bot(id);
+            this.players[id] = new Bot(id, PLAYER_TYPE.TS);
         }
     }
 

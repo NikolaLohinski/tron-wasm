@@ -5,7 +5,7 @@ import { UUID } from '@/common/types';
 export const GAME_NUMBER_PLAYERS = 2;
 
 export default class Game {
-    private players: { [id: string]: Bot };
+    private readonly players: { [id: string]: Bot };
     private grid: { sizeX: number, sizeY: number };
     private currentCorrelationID: UUID = '';
 

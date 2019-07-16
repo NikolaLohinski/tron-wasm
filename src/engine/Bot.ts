@@ -1,5 +1,5 @@
 import BotWorker from 'worker-loader!@/worker/glue.worker';
-import {IBotWorker, MESSAGE_TYPE, WBootMessage, WEvent, WMessage} from '@/worker/types';
+import {IWorker, MESSAGE_TYPE, WBootMessage, WEvent, WMessage, NATIVE_WORKER_MESSAGE_TYPE} from '@/worker/types';
 import {UUID} from '@/common/types';
 
 export const BOOT_TIMEOUT_MS = 1000;
@@ -10,7 +10,7 @@ export interface IBot {
 }
 
 export default class Bot implements IBot {
-    public worker: IBotWorker;
+    private worker: IWorker;
 
     private bootResolver?: () => void;
     private readonly id: UUID;
@@ -24,15 +24,17 @@ export default class Bot implements IBot {
 
     public boot(correlationID: UUID): Promise<void> {
         this.worker.terminate();
-        this.worker = new (BotWorker as any)();
         return new Promise((resolveBoot) => {
+            this.worker = new (BotWorker as any)();
+
+            this.worker.addEventListener(NATIVE_WORKER_MESSAGE_TYPE.MESSAGE, this.handleWEvent.bind(this));
+            this.worker.addEventListener(NATIVE_WORKER_MESSAGE_TYPE.ERROR, this.handleFatalWError.bind(this));
+
             this.bootResolver = () => {
                 clearTimeout(this.bootTimeout);
                 resolveBoot();
                 this.bootResolver = undefined;
             };
-            this.worker.onmessage = this.handleWEvent.bind(this);
-            this.worker.onerror = this.handleFatalWError.bind(this);
 
             const bootMessage: WBootMessage = {
                 workerID: this.id,
@@ -41,6 +43,7 @@ export default class Bot implements IBot {
             };
 
             this.worker.postMessage(bootMessage);
+
             this.bootTimeout = setTimeout(() => {
                 throw Error(`boot timeout after ${BOOT_TIMEOUT_MS} ms`);
             }, BOOT_TIMEOUT_MS);
@@ -73,9 +76,9 @@ export default class Bot implements IBot {
         }
     }
 
-    private handleFatalWError(err: Error): void {
+    public handleFatalWError(event: WEvent): void {
         // tslint:disable-next-line
-        console.error('[MAIN]: fatal worker error', err);
+        console.error('[MAIN]: fatal worker error', event);
         this.worker.terminate();
         throw Error('fatal worker error');
     }

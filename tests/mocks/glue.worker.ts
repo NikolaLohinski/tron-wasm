@@ -1,24 +1,15 @@
-import { IBotWorker, WMessage, WEvent } from '@/worker/types';
+import {IWorker, WMessage, WEvent, IWorkerContext, NATIVE_WORKER_MESSAGE_TYPE} from '@/worker/types';
 import * as TypeMoq from 'typemoq';
 
-export const MockBotWorker: TypeMoq.IMock<IBotWorker> = TypeMoq.Mock.ofType<IBotWorker>();
+export const MockBotWorker: TypeMoq.IMock<IWorker> = TypeMoq.Mock.ofType<IWorker>();
 
-export default class StubBotWorker implements IBotWorker {
-    public onmessage: (event: WEvent) => void;
-    public onerror: (err: Error) => void;
-
-    constructor() {
-      this.onmessage = (x: any): void => {
-        MockBotWorker.object.onmessage(x);
-        return;
-      };
-      this.onerror = (x: any): void => {
-        MockBotWorker.object.onerror(x);
-        return;
-      };
+export default class StubWorker implements IWorker {
+    public addEventListener(message: NATIVE_WORKER_MESSAGE_TYPE, callback: (event: WEvent) => void): void {
+      MockBotWorker.object.addEventListener(message, callback);
+      return;
     }
 
-    public postMessage(message: WMessage): void {
+    public postMessage(message: any): void {
       MockBotWorker.object.postMessage(message);
       return;
     }
@@ -27,4 +18,4 @@ export default class StubBotWorker implements IBotWorker {
       MockBotWorker.object.terminate();
       return;
     }
-  }
+}

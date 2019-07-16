@@ -1,8 +1,8 @@
 import * as TypeMoq from 'typemoq';
 
-import { MockBotWorker } from '../mocks/glue.worker';
-import { UUID } from '@/common/types';
-import { WBootMessage, MESSAGE_TYPE, WResultMessage, WEvent } from '@/worker/types';
+import {MockBotWorker} from '../mocks/glue.worker';
+import {UUID} from '@/common/types';
+import {WBootMessage, MESSAGE_TYPE, WResultMessage, WEvent, NATIVE_WORKER_MESSAGE_TYPE} from '@/worker/types';
 
 import Bot from '@/engine/Bot';
 
@@ -10,10 +10,14 @@ describe('Bot', () => {
     const workerID: UUID = '9951ec73-3a46-4ad1-86ed-5c2cd0788112';
     let bot: Bot;
 
+    beforeEach(() => {
+       MockBotWorker.reset();
+    });
 
     describe('constructor', () => {
         test('should initialize the underlying web worker', () => {
-            return expect(new Bot(workerID).worker).toBeDefined();
+            // tslint:disable-next-line
+            return expect(new Bot(workerID)['worker']).toBeDefined();
         });
     });
 
@@ -24,7 +28,7 @@ describe('Bot', () => {
             bot = new Bot(workerID);
         });
 
-        test('should reboot worker, setup message handler and send the correct boot message', () => {
+        test('should reboot worker, setup message handlers and send the correct boot message', () => {
 
             const expectedBootMessage: WBootMessage = {
                 correlationID,
@@ -39,8 +43,13 @@ describe('Bot', () => {
             // Then we verify assertions
             return new Promise((resolve) => {
                 MockBotWorker.verify((m) => m.terminate(), TypeMoq.Times.once());
+                MockBotWorker.verify((m) => {
+                    return m.addEventListener(NATIVE_WORKER_MESSAGE_TYPE.MESSAGE, TypeMoq.It.isAny());
+                }, TypeMoq.Times.once());
+                MockBotWorker.verify((m) => {
+                    return m.addEventListener(NATIVE_WORKER_MESSAGE_TYPE.ERROR, TypeMoq.It.isAny());
+                }, TypeMoq.Times.once());
                 MockBotWorker.verify((m) => m.postMessage(expectedBootMessage), TypeMoq.Times.once());
-                expect(bot.worker.onmessage).toBeDefined();
                 resolve();
             });
         });
@@ -92,6 +101,23 @@ describe('Bot', () => {
             };
 
             expect(() => bot.handleWEvent({ data: returnedWMessage } as WEvent)).toThrow(TypeError);
+        });
+    });
+
+    describe('handleFatalWError', () => {
+        beforeEach(() => {
+            bot = new Bot(workerID);
+        });
+
+        test('should terminate worker and throw an error', () => {
+            const errorFromWorker = Error('fatal error sent from worker');
+            const expectedError = Error('fatal worker error');
+            try {
+                bot.handleFatalWError((errorFromWorker as any) as WEvent);
+            } catch (e) {
+                expect(e).toEqual(expectedError);
+            }
+            MockBotWorker.verify((m) => m.terminate(), TypeMoq.Times.once());
         });
     });
 });

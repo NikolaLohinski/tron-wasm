@@ -1,7 +1,7 @@
-import {IBotWorker} from '@/worker/types';
+import {IWorker, IWorkerContext} from '@/worker/types';
 import BotWorker from '@/worker/BotWorker';
 
-const ctx: IBotWorker = self as any;
+const ctx: IWorkerContext = self as any;
 
 const bot = new BotWorker(ctx);
 

@@ -5,7 +5,7 @@ import Bot from '@/engine/Bot';
 jest.mock('@/engine/Bot', () => jest.fn());
 const mockBot = (Bot as any) as jest.Mock<typeof Bot>;
 
-import { IBot } from '@/engine/Bot';
+import {IBot} from '@/engine/Bot';
 import Game, {GAME_NUMBER_PLAYERS} from '@/engine/Game';
 
 describe('Game', () => {
@@ -33,7 +33,7 @@ describe('Game', () => {
             mockBot1.reset();
             mockBot2.reset();
 
-            // Mock new Bot instanciation
+            // Mock new Bot instantiation
             mockBot.mockImplementationOnce(() => (mockBot1.object as any));
             mockBot.mockImplementationOnce(() => (mockBot2.object as any));
 

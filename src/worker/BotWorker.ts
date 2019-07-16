@@ -1,8 +1,8 @@
-import {IBotWorker, MESSAGE_TYPE, WErrorMessage, WEvent, WMessage} from '@/worker/types';
+import {IWorkerContext, MESSAGE_TYPE, WErrorMessage, WEvent, WMessage, WResultMessage} from '@/worker/types';
 
 export default class BotWorker {
-    private ctx: IBotWorker;
-    constructor(ctx: IBotWorker) {
+    private ctx: IWorkerContext;
+    constructor(ctx: IWorkerContext) {
         this.ctx = ctx;
     }
 
@@ -27,7 +27,7 @@ export default class BotWorker {
         }
     }
 
-    private static handleWMessage(message: WMessage): WMessage | null {
+    private static handleWMessage(message: WMessage): WErrorMessage | WResultMessage | null {
         switch (message.type) {
             case MESSAGE_TYPE.BOOT:
                 // tslint:disable-next-line
@@ -38,7 +38,7 @@ export default class BotWorker {
                     origin: message.type,
                     type: MESSAGE_TYPE.RESULT,
                 };
-            case MESSAGE_TYPE.RESULT:
+            case MESSAGE_TYPE.REQUEST:
                 // tslint:disable-next-line
                 console.log(`[WORKER: ${message.workerID}]: request received`, message);
                 break;

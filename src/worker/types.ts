@@ -1,5 +1,10 @@
 import { UUID } from '@/common/types';
 
+export const enum NATIVE_WORKER_MESSAGE_TYPE {
+    MESSAGE = 'message',
+    ERROR = 'error',
+}
+
 export const enum MESSAGE_TYPE {
     BOOT = 'BOOT',
     REQUEST = 'REQUEST',
@@ -39,9 +44,13 @@ export interface WEvent extends MessageEvent {
     data: WMessage;
 }
 
-export interface IBotWorker {
-    postMessage: (message: WMessage) => void;
-    onmessage: (event: WEvent) => void;
-    onerror: (err: Error) => void;
+export interface IWorker {
+    postMessage: (message: WBootMessage | WRequestMessage) => void;
+    addEventListener: (type: NATIVE_WORKER_MESSAGE_TYPE, callback: (event: WEvent) => void) => void;
     terminate: () => void;
+}
+
+export interface IWorkerContext {
+    postMessage: (message: WErrorMessage | WResultMessage) => void;
+    onmessage: (event: WEvent) => void;
 }

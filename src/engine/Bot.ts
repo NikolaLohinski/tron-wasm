@@ -1,6 +1,7 @@
 import BotWorker from 'worker-loader!@/worker/glue.worker';
 import {IWorker, MESSAGE_TYPE, WBootMessage, WEvent, WMessage, NATIVE_WORKER_MESSAGE_TYPE} from '@/worker/types';
 import {UUID, PLAYER_TYPE} from '@/common/types';
+import {generateUUID} from '@/common/utils';
 
 export const BOOT_TIMEOUT_MS = 1000;
 
@@ -14,6 +15,7 @@ export default class Bot implements IBot {
 
     private bootResolver?: () => void;
     private readonly id: UUID;
+    private workerID?: UUID;
     private readonly playerType: PLAYER_TYPE;
     private bootTimeout: number;
 
@@ -38,8 +40,10 @@ export default class Bot implements IBot {
                 this.bootResolver = undefined;
             };
 
+            this.workerID = generateUUID();
+
             const bootMessage: WBootMessage = {
-                workerID: this.id,
+                workerID: this.workerID,
                 correlationID,
                 type: MESSAGE_TYPE.BOOT,
                 playerType: this.playerType,

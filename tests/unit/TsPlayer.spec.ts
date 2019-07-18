@@ -1,13 +1,14 @@
 import * as TypeMoq from 'typemoq';
 
-import NewTsPlayer from '@/engine/TsPlayerFactory';
-import {Player, MOVE, Turn, DecideFunc} from '@/common/types';
+import {DecideFunc, Player, PLAYER_TYPE, Turn} from '@/common/types';
+
+import NewPlayer from '@/engine/PlayerFactory';
 
 describe('TsPlayer', () => {
     describe('Factory', () => {
         test('should return a player', () => {
             expect.assertions(1);
-            return expect(NewTsPlayer()).resolves.toBeDefined();
+            return expect(NewPlayer(PLAYER_TYPE.TS)).resolves.toBeDefined();
         });
     });
 
@@ -18,8 +19,8 @@ describe('TsPlayer', () => {
             decideMock.reset();
         });
 
-        test('should go forward', () => {
-            return NewTsPlayer().then((tsPlayer: Player) => {
+        test('should call decide function', () => {
+            return NewPlayer(PLAYER_TYPE.TS).then((tsPlayer: Player) => {
                 const turn: Turn = {
                     position: {
                         x: 1,
@@ -32,7 +33,7 @@ describe('TsPlayer', () => {
                     decide: decideMock.object,
                 };
                 tsPlayer.play(turn);
-                decideMock.verify((m) => m(MOVE.FORWARD), TypeMoq.Times.once());
+                decideMock.verify((m) => m(TypeMoq.It.isAny()), TypeMoq.Times.once());
             });
         });
     });

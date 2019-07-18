@@ -10,9 +10,9 @@ import {
 import {UUID, PLAYER_TYPE, Player, Turn, MOVE} from '@/common/types';
 
 // Mock Bot module import
-import NewTsPlayer from '@/engine/TsPlayerFactory';
-jest.mock('@/engine/TsPlayerFactory', () => jest.fn());
-const mockNewTsPlayer = (NewTsPlayer as any) as jest.Mock<Promise<Player>>;
+import NewPlayer from '@/engine/PlayerFactory';
+jest.mock('@/engine/PlayerFactory', () => jest.fn());
+const mockNewPlayer = (NewPlayer as any) as jest.Mock<Promise<Player>>;
 
 import BotWorker from '@/worker/BotWorker';
 
@@ -32,8 +32,8 @@ describe('Bot Worker', () => {
 
     beforeEach(() => {
 
-        mockNewTsPlayer.mockClear();
-        mockNewTsPlayer.mockImplementationOnce(() => new Promise((rs) => rs(mockPlayer as Player)));
+        mockNewPlayer.mockClear();
+        mockNewPlayer.mockImplementationOnce(() => new Promise((rs) => rs(mockPlayer as Player)));
 
         botWorker = new BotWorker(mockWorkerContext as IWorkerContext);
     });
@@ -58,7 +58,7 @@ describe('Bot Worker', () => {
                     correlationID,
                     origin: MESSAGE_TYPE.BOOT,
                 };
-                expect(mockNewTsPlayer).toHaveBeenCalledTimes(1);
+                expect(mockNewPlayer).toHaveBeenCalledTimes(1);
 
                 expect(mockWorkerContext.postMessage).toHaveBeenCalledTimes(1);
                 expect(mockWorkerContext.postMessage).toHaveBeenCalledWith(expectedBootResult);

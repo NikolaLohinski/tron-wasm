@@ -26,9 +26,13 @@ export default class Game {
             throw Error('can not start a game that has already started');
         }
         return new Promise((resolve) => {
-            this.currentCorrelationID = generateUUID();
-            Promise.all(Object.values(this.players).map((player: Bot) => player.boot(this.currentCorrelationID)))
-                .then(() => resolve());
+            const correlationID = generateUUID();
+
+            const playersBoots = Object.values(this.players).map((player: Bot) => player.boot(correlationID));
+
+            Promise.all(playersBoots).then(() => resolve());
+
+            this.currentCorrelationID = correlationID;
         });
     }
 }

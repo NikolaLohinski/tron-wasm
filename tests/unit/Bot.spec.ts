@@ -7,7 +7,9 @@ import {WBootMessage, MESSAGE_TYPE, WResultMessage, WEvent, NATIVE_WORKER_MESSAG
 import Bot from '@/engine/Bot';
 
 describe('Bot', () => {
-    const workerID: UUID = '9951ec73-3a46-4ad1-86ed-5c2cd0788112';
+    const botID: UUID = '9951ec73-3a46-4ad1-86ed-5c2cd0788112';
+    const workerID: UUID = 'b6ce5701-e1c5-4d55-a9e7-a30ffe633781';
+
     const playerType = PLAYER_TYPE.TS;
     let bot: Bot;
 
@@ -18,7 +20,7 @@ describe('Bot', () => {
     describe('constructor', () => {
         test('should initialize the underlying web worker', () => {
             // tslint:disable-next-line
-            return expect(new Bot(workerID, playerType)['worker']).toBeDefined();
+            return expect(new Bot(botID, playerType)['worker']).toBeDefined();
         });
     });
 
@@ -28,18 +30,10 @@ describe('Bot', () => {
         beforeEach(() => {
             MockBotWorker.reset();
 
-            bot = new Bot(workerID, playerType);
+            bot = new Bot(botID, playerType);
         });
 
-        test('should eventually reboot worker, setup message handlers and send the correct boot message', (done) => {
-
-            const expectedBootMessage: WBootMessage = {
-                correlationID,
-                workerID,
-                type: MESSAGE_TYPE.BOOT,
-                playerType: PLAYER_TYPE.TS,
-            };
-
+        test('should eventually reboot worker, setup message handlers and send the a boot result', (done) => {
             // First promise, on top of pile so it should be handled first
             // This promise will never end since it resolves when worker responds
             bot.boot(correlationID).then();
@@ -54,7 +48,7 @@ describe('Bot', () => {
                 MockBotWorker.verify((m) => {
                     return m.addEventListener(NATIVE_WORKER_MESSAGE_TYPE.ERROR, TypeMoq.It.isAny());
                 }, TypeMoq.Times.once());
-                MockBotWorker.verify((m) => m.postMessage(expectedBootMessage), TypeMoq.Times.once());
+                MockBotWorker.verify((m) => m.postMessage(TypeMoq.It.isAny()), TypeMoq.Times.once());
 
                 done();
             }, 20);
@@ -66,7 +60,7 @@ describe('Bot', () => {
         beforeEach(() => {
             MockBotWorker.reset();
 
-            bot = new Bot(workerID, playerType);
+            bot = new Bot(botID, playerType);
 
             bootResolved = false;
             // tslint:disable-next-line
@@ -76,7 +70,7 @@ describe('Bot', () => {
         });
         test('should resolve boot on boot result message', () => {
             const returnedWMessage: WResultMessage = {
-                workerID,
+                workerID: expect.anything(),
                 correlationID: 'd64385ef-17ed-4891-bb67-9273816be97f',
                 type: MESSAGE_TYPE.RESULT,
                 origin: MESSAGE_TYPE.BOOT,
@@ -93,7 +87,7 @@ describe('Bot', () => {
             bot['bootResolver'] = undefined;
 
             const returnedWMessage: WBootMessage = {
-                workerID,
+                workerID: expect.anything(),
                 correlationID: 'd64385ef-17ed-4891-bb67-9273816be97f',
                 type: MESSAGE_TYPE.BOOT,
                 playerType: PLAYER_TYPE.TS,
@@ -104,7 +98,7 @@ describe('Bot', () => {
 
         test('should throw an error on unhandled message type', () => {
             const returnedWMessage: WBootMessage = {
-                workerID,
+                workerID: expect.anything(),
                 correlationID: 'd64385ef-17ed-4891-bb67-9273816be97f',
                 type: MESSAGE_TYPE.BOOT,
                 playerType: PLAYER_TYPE.TS,
@@ -118,7 +112,7 @@ describe('Bot', () => {
         beforeEach(() => {
             MockBotWorker.reset();
 
-            bot = new Bot(workerID, playerType);
+            bot = new Bot(botID, playerType);
         });
 
         test('should terminate worker and throw an error', () => {

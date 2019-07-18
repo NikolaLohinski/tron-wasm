@@ -1,6 +1,7 @@
 import {IWorkerContext, MESSAGE_TYPE, WErrorMessage, WEvent, WMessage, WResultMessage} from '@/worker/types';
-import {Player, PLAYER_TYPE, MOVE, Turn} from '@/common/types';
-import NewTsPlayer from '@/engine/TsPlayerFactory';
+import {Player, MOVE, Turn} from '@/common/types';
+
+import NewPlayer from '@/engine/PlayerFactory';
 
 export default class BotWorker {
 
@@ -40,8 +41,8 @@ export default class BotWorker {
                 case MESSAGE_TYPE.BOOT:
                     // tslint:disable-next-line
                     console.log(`[WORKER: ${message.workerID}]: boot order received`, message);
-
-                    this.createPlayer(message.playerType).then(() => {
+                    NewPlayer(message.playerType).then((player: Player) => {
+                        this.player = player;
                         resolve({
                             workerID: message.workerID,
                             correlationID: message.correlationID,
@@ -75,21 +76,6 @@ export default class BotWorker {
                     break;
                 default:
                     throw Error(`unknown message of type '${message.type}'`);
-            }
-        });
-    }
-
-    private createPlayer(type: PLAYER_TYPE): Promise<void> {
-        return new Promise((resolve) => {
-            switch (type) {
-                case PLAYER_TYPE.TS:
-                    NewTsPlayer().then((player: Player) => {
-                        this.player = player;
-                        resolve();
-                    });
-                    break;
-                default:
-                    throw TypeError(`unknown player of type "${type}"`);
             }
         });
     }

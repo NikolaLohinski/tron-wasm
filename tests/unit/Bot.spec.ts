@@ -1,14 +1,20 @@
 import * as TypeMoq from 'typemoq';
 
 import {MockBotWorker} from '../mocks/glue.worker';
-import {UUID, PLAYER_TYPE} from '@/common/types';
-import {WBootMessage, MESSAGE_TYPE, WResultMessage, WEvent, NATIVE_WORKER_MESSAGE_TYPE} from '@/worker/types';
+import {Grid, MOVE, PLAYER_TYPE, Position, UUID} from '@/common/types';
+import {
+    MESSAGE_TYPE,
+    NATIVE_WORKER_MESSAGE_TYPE,
+    WBootMessage,
+    WEvent,
+    WRequestMessage,
+    WResultMessage,
+} from '@/worker/types';
 
 import Bot from '@/engine/Bot';
 
 describe('Bot', () => {
     const botID: UUID = '9951ec73-3a46-4ad1-86ed-5c2cd0788112';
-    const workerID: UUID = 'b6ce5701-e1c5-4d55-a9e7-a30ffe633781';
 
     const playerType = PLAYER_TYPE.TS;
     let bot: Bot;
@@ -55,7 +61,7 @@ describe('Bot', () => {
         });
     });
 
-    describe('handleWEvent', () => {
+    describe('[PRIVATE] handleWEvent', () => {
         let bootResolved: boolean;
         beforeEach(() => {
             MockBotWorker.reset();
@@ -77,7 +83,8 @@ describe('Bot', () => {
                 content: undefined,
             };
 
-            bot.handleWEvent({ data: returnedWMessage } as WEvent);
+            // tslint:disable-next-line
+            bot['handleWEvent']({ data: returnedWMessage } as WEvent);
 
             expect(bootResolved).toEqual(true);
         });
@@ -92,8 +99,8 @@ describe('Bot', () => {
                 type: MESSAGE_TYPE.BOOT,
                 playerType: PLAYER_TYPE.TS,
             };
-
-            expect(() => bot.handleWEvent({ data: returnedWMessage } as WEvent)).toThrow(Error);
+            // tslint:disable-next-line
+            expect(() =>  bot['handleWEvent']({ data: returnedWMessage } as WEvent)).toThrow(Error);
         });
 
         test('should throw an error on unhandled message type', () => {
@@ -103,12 +110,34 @@ describe('Bot', () => {
                 type: MESSAGE_TYPE.BOOT,
                 playerType: PLAYER_TYPE.TS,
             };
+            // tslint:disable-next-line
+            expect(() =>  bot['handleWEvent']({ data: returnedWMessage } as WEvent)).toThrow(TypeError);
+        });
 
-            expect(() => bot.handleWEvent({ data: returnedWMessage } as WEvent)).toThrow(TypeError);
+        test('should throw an error on unhandled message type', () => {
+            const correlationID = 'd64385ef-17ed-4891-bb67-9273816be97f';
+            const returnedWMessage: WResultMessage = {
+                workerID: expect.anything(),
+                correlationID,
+                type: MESSAGE_TYPE.RESULT,
+                content: MOVE.STARBOARD,
+                origin: MESSAGE_TYPE.REQUEST,
+            };
+
+            const mockActFunction = jest.fn();
+            // tslint:disable-next-line
+            bot['actFunction'] = mockActFunction;
+
+            // tslint:disable-next-line
+            bot['handleWEvent']({ data: returnedWMessage} as WEvent);
+
+            // tslint:disable-next-line
+            expect(mockActFunction).toHaveBeenCalledTimes(1);
+            expect(mockActFunction).toHaveBeenCalledWith(correlationID, MOVE.STARBOARD);
         });
     });
 
-    describe('handleFatalWError', () => {
+    describe('[PRIVATE] handleFatalWError', () => {
         beforeEach(() => {
             MockBotWorker.reset();
 
@@ -119,11 +148,50 @@ describe('Bot', () => {
             const errorFromWorker = Error('fatal error sent from worker');
             const expectedError = Error('fatal worker error');
             try {
-                bot.handleFatalWError((errorFromWorker as any) as WEvent);
+                // tslint:disable-next-line
+                bot['handleFatalWError']((errorFromWorker as any) as WEvent);
             } catch (e) {
                 expect(e).toEqual(expectedError);
             }
             MockBotWorker.verify((m) => m.terminate(), TypeMoq.Times.once());
+        });
+    });
+
+
+    describe('play', () => {
+        const correlationID: UUID = 'd64385ef-17ed-4891-bb67-9273816be97f';
+
+        beforeEach(() => {
+            MockBotWorker.reset();
+
+            bot = new Bot(botID, playerType);
+        });
+
+        test('should send request message with relevant data', () => {
+            const position: Position = {} as any;
+            const grid: Grid = {} as any;
+            const actFunction: (id: UUID, move: MOVE) => void = () => {
+                return;
+            };
+            const mockWorker = { postMessage: jest.fn() } as any;
+
+            // tslint:disable-next-line
+            bot['worker'] = mockWorker;
+
+            const expectedRequest: WRequestMessage = {
+                workerID: expect.anything(),
+                correlationID,
+                type: MESSAGE_TYPE.REQUEST,
+                content: {
+                  position,
+                  grid,
+                },
+            };
+
+            bot.play(correlationID, position, grid, actFunction);
+
+            expect(mockWorker.postMessage).toHaveBeenCalledTimes(1);
+            expect(mockWorker.postMessage).toHaveBeenCalledWith(expectedRequest);
         });
     });
 });

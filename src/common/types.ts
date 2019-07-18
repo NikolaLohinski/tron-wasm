@@ -16,13 +16,20 @@ export interface Position {
     prev?: Position;
 }
 
+export interface Grid {
+    sizeX: number;
+    sizeY: number;
+    filled: {[xy: string]: boolean};
+}
+
 export type DecideFunc = (direction: MOVE) => void;
 
 export interface Turn {
     position: Position;
+    grid: Grid;
     decide: DecideFunc;
 }
 
 export interface Player {
-    play(turn: Turn): void;
+    act(turn: Turn): void;
 }

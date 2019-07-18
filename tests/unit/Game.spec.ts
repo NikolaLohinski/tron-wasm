@@ -6,20 +6,18 @@ jest.mock('@/engine/Bot', () => jest.fn());
 const mockBot = (Bot as any) as jest.Mock<typeof Bot>;
 
 import {IBot} from '@/engine/Bot';
-import Game, {GAME_NUMBER_PLAYERS} from '@/engine/Game';
+import Game from '@/engine/Game';
 
 describe('Game', () => {
-    const gridSize: number = 15;
-
     beforeEach(() => {
         mockBot.mockClear();
     });
 
     describe('constructor', () => {
         test('should initialize and create a defined number of players', () => {
-            const game = new Game(gridSize, gridSize);
+            const game = new Game(15, 15, 100, 2);
             expect(game).toBeDefined();
-            expect(mockBot).toHaveBeenCalledTimes(GAME_NUMBER_PLAYERS);
+            expect(mockBot).toHaveBeenCalledTimes(2);
         });
     });
 
@@ -37,7 +35,7 @@ describe('Game', () => {
             mockBot.mockImplementationOnce(() => (mockBot1.object as any));
             mockBot.mockImplementationOnce(() => (mockBot2.object as any));
 
-            game = new Game(gridSize, gridSize);
+            game = new Game(15, 15);
         });
 
 

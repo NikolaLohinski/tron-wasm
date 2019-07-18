@@ -1,21 +1,29 @@
 import BotWorker from 'worker-loader!@/worker/glue.worker';
-import {IWorker, MESSAGE_TYPE, WBootMessage, WEvent, WMessage, NATIVE_WORKER_MESSAGE_TYPE} from '@/worker/types';
-import {UUID, PLAYER_TYPE} from '@/common/types';
+import {
+    IWorker,
+    MESSAGE_TYPE,
+    NATIVE_WORKER_MESSAGE_TYPE,
+    WBootMessage,
+    WEvent,
+    WMessage,
+    WRequestMessage,
+} from '@/worker/types';
+import {Grid, MOVE, PLAYER_TYPE, Position, UUID} from '@/common/types';
 import {generateUUID} from '@/common/utils';
 
 export const BOOT_TIMEOUT_MS = 1000;
 
 export interface IBot {
     boot(correlationID: UUID): Promise<void>;
-    handleWEvent(event: WEvent): void;
 }
 
 export default class Bot implements IBot {
     private worker: IWorker;
 
     private bootResolver?: () => void;
+    private actFunction?: (correlationID: UUID, move: MOVE) => void;
     private readonly id: UUID;
-    private workerID?: UUID;
+    private workerID: UUID = '';
     private readonly playerType: PLAYER_TYPE;
     private bootTimeout: number;
 
@@ -57,7 +65,23 @@ export default class Bot implements IBot {
         });
     }
 
-    public handleWEvent(event: WEvent): void {
+    public play(correlationID: UUID, position: Position, grid: Grid, decide: (id: UUID, move: MOVE) => void): void {
+        this.actFunction = decide;
+
+        const requestMessage: WRequestMessage = {
+            correlationID,
+            workerID: this.workerID,
+            type: MESSAGE_TYPE.REQUEST,
+            content: {
+                position,
+                grid,
+            },
+        };
+
+        this.worker.postMessage(requestMessage);
+    }
+
+    private handleWEvent(event: WEvent): void {
         const message: WMessage = event.data;
 
         if (!this.bootResolver) {
@@ -69,7 +93,12 @@ export default class Bot implements IBot {
                 if (message.origin === MESSAGE_TYPE.BOOT) {
                     // tslint:disable-next-line
                     console.log('[MAIN]: boot result received', message);
-                    (this.bootResolver as () => void)();
+                    (this.bootResolver as any)();
+                }
+                if (message.origin === MESSAGE_TYPE.REQUEST) {
+                    // tslint:disable-next-line
+                    console.log('[MAIN]: request result received', message);
+                    (this.actFunction as any)(message.correlationID, message.content);
                 }
                 break;
             case MESSAGE_TYPE.ERROR:
@@ -83,7 +112,7 @@ export default class Bot implements IBot {
         }
     }
 
-    public handleFatalWError(event: WEvent): void {
+    private handleFatalWError(event: WEvent): void {
         // tslint:disable-next-line
         console.error('[MAIN]: fatal worker error', event);
         this.worker.terminate();

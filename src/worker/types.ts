@@ -1,4 +1,4 @@
-import { UUID, PLAYER_TYPE } from '@/common/types';
+import {UUID, PLAYER_TYPE, Grid, Position, MOVE} from '@/common/types';
 
 export const enum NATIVE_WORKER_MESSAGE_TYPE {
     MESSAGE = 'message',
@@ -30,13 +30,16 @@ export interface WErrorMessage extends WBaseMessage {
 
 export interface WRequestMessage extends WBaseMessage {
     type: MESSAGE_TYPE.REQUEST;
-    content: any;
+    content: {
+        position: Position,
+        grid: Grid,
+    };
 }
 
 export interface WResultMessage extends WBaseMessage {
     type: MESSAGE_TYPE.RESULT;
     origin: MESSAGE_TYPE.BOOT | MESSAGE_TYPE.REQUEST;
-    content?: any;
+    content?: MOVE;
 }
 
 export type WMessage = WBootMessage | WErrorMessage | WRequestMessage | WResultMessage;

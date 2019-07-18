@@ -13,7 +13,7 @@ export default function NewPlayer(type: PLAYER_TYPE): Promise<Player> {
 }
 
 class TsPlayer implements Player {
-    public play(turn: Turn): void {
+    public act(turn: Turn): void {
         turn.decide(MOVE.FORWARD);
         return;
     }

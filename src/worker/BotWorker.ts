@@ -59,7 +59,8 @@ export default class BotWorker {
                     }
                     const self = this;
                     const turn: Turn = {
-                        position: message.content,
+                        position: message.content.position,
+                        grid: message.content.grid,
                         decide(move: MOVE) {
                             const result: WResultMessage = {
                                 workerID: message.workerID,
@@ -71,7 +72,7 @@ export default class BotWorker {
                             self.ctx.postMessage(result);
                         },
                     };
-                    this.player.play(turn);
+                    this.player.act(turn);
                     resolve(null);
                     break;
                 default:

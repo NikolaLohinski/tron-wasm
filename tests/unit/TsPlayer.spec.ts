@@ -30,9 +30,14 @@ describe('TsPlayer', () => {
                             y: 1,
                         },
                     },
+                    grid: {
+                      sizeX: 15,
+                      sizeY: 15,
+                      filled: {},
+                    },
                     decide: decideMock.object,
                 };
-                tsPlayer.play(turn);
+                tsPlayer.act(turn);
                 decideMock.verify((m) => m(TypeMoq.It.isAny()), TypeMoq.Times.once());
             });
         });

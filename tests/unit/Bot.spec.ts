@@ -61,6 +61,42 @@ describe('Bot', () => {
         });
     });
 
+    describe('requestAction', () => {
+        const correlationID: UUID = 'd64385ef-17ed-4891-bb67-9273816be97f';
+
+        beforeEach(() => {
+            MockBotWorker.reset();
+
+            bot = new Bot(botID, playerType);
+        });
+
+        test('should send request message with relevant data', () => {
+            const position: Position = 'this is a position' as any;
+            const grid: Grid = 'this is a grid' as any;
+            const actFunction: (id: UUID, move: MOVE) => void = 'this is an act fuction' as any;
+
+            const mockWorker = { postMessage: jest.fn() } as any;
+
+            // tslint:disable-next-line
+            bot['worker'] = mockWorker;
+
+            const expectedRequest: WRequestMessage = {
+                workerID: expect.anything(),
+                correlationID,
+                type: MESSAGE_TYPE.REQUEST,
+                content: {
+                    position,
+                    grid,
+                },
+            };
+
+            bot.requestAction(correlationID, position, grid, actFunction);
+
+            expect(mockWorker.postMessage).toHaveBeenCalledTimes(1);
+            expect(mockWorker.postMessage).toHaveBeenCalledWith(expectedRequest);
+        });
+    });
+
     describe('[PRIVATE] handleWEvent', () => {
         let bootResolved: boolean;
         beforeEach(() => {
@@ -154,44 +190,6 @@ describe('Bot', () => {
                 expect(e).toEqual(expectedError);
             }
             MockBotWorker.verify((m) => m.terminate(), TypeMoq.Times.once());
-        });
-    });
-
-
-    describe('play', () => {
-        const correlationID: UUID = 'd64385ef-17ed-4891-bb67-9273816be97f';
-
-        beforeEach(() => {
-            MockBotWorker.reset();
-
-            bot = new Bot(botID, playerType);
-        });
-
-        test('should send request message with relevant data', () => {
-            const position: Position = {} as any;
-            const grid: Grid = {} as any;
-            const actFunction: (id: UUID, move: MOVE) => void = () => {
-                return;
-            };
-            const mockWorker = { postMessage: jest.fn() } as any;
-
-            // tslint:disable-next-line
-            bot['worker'] = mockWorker;
-
-            const expectedRequest: WRequestMessage = {
-                workerID: expect.anything(),
-                correlationID,
-                type: MESSAGE_TYPE.REQUEST,
-                content: {
-                  position,
-                  grid,
-                },
-            };
-
-            bot.play(correlationID, position, grid, actFunction);
-
-            expect(mockWorker.postMessage).toHaveBeenCalledTimes(1);
-            expect(mockWorker.postMessage).toHaveBeenCalledWith(expectedRequest);
         });
     });
 });

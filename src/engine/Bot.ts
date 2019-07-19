@@ -65,11 +65,11 @@ export default class Bot implements IBot {
         });
     }
 
-    public play(correlationID: UUID, position: Position, grid: Grid, decide: (id: UUID, move: MOVE) => void): void {
-        this.actFunction = decide;
+    public requestAction(corr: UUID, position: Position, grid: Grid, act: (id: UUID, move: MOVE) => void): void {
+        this.actFunction = act;
 
         const requestMessage: WRequestMessage = {
-            correlationID,
+            correlationID: corr,
             workerID: this.workerID,
             type: MESSAGE_TYPE.REQUEST,
             content: {

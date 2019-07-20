@@ -7,6 +7,7 @@ import {
     WEvent,
     WMessage,
     WRequestMessage,
+    WResultMessage,
 } from '@/worker/types';
 import {Grid, MOVE, PLAYER_TYPE, Position, UUID} from '@/common/types';
 import {generateUUID} from '@/common/utils';
@@ -15,6 +16,9 @@ export const BOOT_TIMEOUT_MS = 1000;
 
 export interface IBot {
     boot(correlationID: UUID): Promise<void>;
+    isIdle(): boolean;
+    requestAction(corr: UUID, position: Position, grid: Grid, act: (id: UUID, move: MOVE) => void): void;
+    destroy(): void;
 }
 
 export default class Bot implements IBot {
@@ -26,12 +30,14 @@ export default class Bot implements IBot {
     private workerID: UUID = '';
     private readonly playerType: PLAYER_TYPE;
     private bootTimeout: number;
+    private idle: boolean;
 
     constructor(id: UUID, playerType: PLAYER_TYPE) {
         this.id = id;
         this.worker = new (BotWorker as any)();
         this.bootTimeout = -1;
         this.playerType = playerType;
+        this.idle = false;
     }
 
     public boot(correlationID: UUID): Promise<void> {
@@ -65,7 +71,15 @@ export default class Bot implements IBot {
         });
     }
 
+    public isIdle(): boolean {
+        return this.idle;
+    }
+
     public requestAction(corr: UUID, position: Position, grid: Grid, act: (id: UUID, move: MOVE) => void): void {
+        if (!this.idle) {
+            throw Error('can not request action of bot that is not idle');
+        }
+
         this.actFunction = act;
 
         const requestMessage: WRequestMessage = {
@@ -81,33 +95,40 @@ export default class Bot implements IBot {
         this.worker.postMessage(requestMessage);
     }
 
+    public destroy(): void {
+        this.worker.terminate();
+        this.idle = false;
+    }
+
     private handleWEvent(event: WEvent): void {
         const message: WMessage = event.data;
 
-        if (!this.bootResolver) {
+        if (!this.bootResolver && !this.isIdle()) {
             throw Error('can not handle events on not booted worker');
         }
 
         switch (message.type) {
-            case MESSAGE_TYPE.RESULT:
+            case MESSAGE_TYPE.IDLE:
+                // tslint:disable-next-line
+                console.log(`[MAIN]: worker ${this.workerID} is idle`);
                 if (message.origin === MESSAGE_TYPE.BOOT) {
-                    // tslint:disable-next-line
-                    console.log('[MAIN]: boot result received', message);
                     (this.bootResolver as any)();
                 }
-                if (message.origin === MESSAGE_TYPE.REQUEST) {
-                    // tslint:disable-next-line
-                    console.log('[MAIN]: request result received', message);
-                    (this.actFunction as any)(message.correlationID, message.content);
-                }
+                this.idle = true;
+                break;
+            case MESSAGE_TYPE.RESULT:
+                const resultMessage = message as WResultMessage;
+                // tslint:disable-next-line
+                console.log(`[MAIN]: worker ${this.workerID} moved`, message.content);
+                (this.actFunction as any)(message.correlationID, resultMessage.content);
                 break;
             case MESSAGE_TYPE.ERROR:
                 // tslint:disable-next-line
-                console.error('[MAIN]: received error from worker', message);
+                console.error(`[MAIN]: worker ${this.workerID} responded with an error`, message.error);
                 throw Error(`worker "${message.workerID}" error`);
             default:
                 // tslint:disable-next-line
-                console.error('[MAIN]: unhandled message type', message);
+                console.error(`[MAIN]: worker ${this.workerID} can not handled message of type`, message.type);
                 throw TypeError(`unhandled message type "${message.type}"`);
         }
     }
@@ -115,7 +136,7 @@ export default class Bot implements IBot {
     private handleFatalWError(event: WEvent): void {
         // tslint:disable-next-line
         console.error('[MAIN]: fatal worker error', event);
-        this.worker.terminate();
+        this.destroy();
         throw Error('fatal worker error');
     }
 }

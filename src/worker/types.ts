@@ -9,6 +9,7 @@ export const enum MESSAGE_TYPE {
     BOOT = 'BOOT',
     REQUEST = 'REQUEST',
     RESULT = 'RESULT',
+    IDLE = 'IDLE',
     ERROR = 'ERROR',
 }
 
@@ -38,11 +39,16 @@ export interface WRequestMessage extends WBaseMessage {
 
 export interface WResultMessage extends WBaseMessage {
     type: MESSAGE_TYPE.RESULT;
-    origin: MESSAGE_TYPE.BOOT | MESSAGE_TYPE.REQUEST;
+    origin: MESSAGE_TYPE.REQUEST;
     content?: MOVE;
 }
 
-export type WMessage = WBootMessage | WErrorMessage | WRequestMessage | WResultMessage;
+export interface WIdleMessage extends WBaseMessage {
+    type: MESSAGE_TYPE.IDLE;
+    origin: MESSAGE_TYPE.BOOT | MESSAGE_TYPE.REQUEST;
+}
+
+export type WMessage = WBootMessage | WErrorMessage | WRequestMessage | WResultMessage | WIdleMessage;
 
 export interface WEvent extends MessageEvent {
     data: WMessage;
@@ -56,5 +62,5 @@ export interface IWorker {
 
 export interface IWorkerContext {
     onmessage: (event: WEvent) => void;
-    postMessage(message: WErrorMessage | WResultMessage): void;
+    postMessage(message: WErrorMessage | WResultMessage | WIdleMessage): void;
 }

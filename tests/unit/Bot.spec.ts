@@ -9,6 +9,7 @@ import {
     WEvent,
     WRequestMessage,
     WResultMessage,
+    WIdleMessage,
 } from '@/worker/types';
 
 import Bot from '@/engine/Bot';
@@ -61,6 +62,46 @@ describe('Bot', () => {
         });
     });
 
+    describe('isIdle', () => {
+        beforeEach(() => {
+            bot = new Bot(botID, playerType);
+        });
+
+        test('should not be idle if not booted', () => {
+            expect(bot.isIdle()).toBeFalsy();
+        });
+
+        test('should be idle if it was booted and received an idle with origin boot', () => {
+            // tslint:disable-next-line
+            bot['bootResolver'] = () => { return; };
+            const returnedBootResponse: WIdleMessage = {
+                correlationID: expect.anything(),
+                workerID: expect.anything(),
+                type: MESSAGE_TYPE.IDLE,
+                origin: MESSAGE_TYPE.BOOT,
+            };
+            // tslint:disable-next-line
+            bot['handleWEvent']({ data: returnedBootResponse } as WEvent);
+
+            expect(bot.isIdle()).toBeTruthy();
+        });
+
+        test('should be idle if it was booted and received an idle with origin request', () => {
+            // tslint:disable-next-line
+            bot['bootResolver'] = () => { return; };
+            const returnedBootResponse: WIdleMessage = {
+                correlationID: expect.anything(),
+                workerID: expect.anything(),
+                type: MESSAGE_TYPE.IDLE,
+                origin: MESSAGE_TYPE.REQUEST,
+            };
+            // tslint:disable-next-line
+            bot['handleWEvent']({ data: returnedBootResponse } as WEvent);
+
+            expect(bot.isIdle()).toBeTruthy();
+        });
+    });
+
     describe('requestAction', () => {
         const correlationID: UUID = 'd64385ef-17ed-4891-bb67-9273816be97f';
 
@@ -68,6 +109,17 @@ describe('Bot', () => {
             MockBotWorker.reset();
 
             bot = new Bot(botID, playerType);
+
+            const returnedWMessage: WIdleMessage = {
+                workerID: expect.anything(),
+                correlationID,
+                type: MESSAGE_TYPE.IDLE,
+                origin: MESSAGE_TYPE.BOOT,
+            };
+            // tslint:disable-next-line
+            bot['bootResolver'] = () => { return; };
+            // tslint:disable-next-line
+            bot['handleWEvent']({ data: returnedWMessage } as WEvent);
         });
 
         test('should send request message with relevant data', () => {
@@ -110,13 +162,13 @@ describe('Bot', () => {
                 bootResolved = true;
             };
         });
+
         test('should resolve boot on boot result message', () => {
-            const returnedWMessage: WResultMessage = {
+            const returnedWMessage: WIdleMessage = {
                 workerID: expect.anything(),
                 correlationID: 'd64385ef-17ed-4891-bb67-9273816be97f',
-                type: MESSAGE_TYPE.RESULT,
+                type: MESSAGE_TYPE.IDLE,
                 origin: MESSAGE_TYPE.BOOT,
-                content: undefined,
             };
 
             // tslint:disable-next-line

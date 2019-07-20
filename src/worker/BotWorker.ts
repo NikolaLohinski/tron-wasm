@@ -1,4 +1,12 @@
-import {IWorkerContext, MESSAGE_TYPE, WErrorMessage, WEvent, WMessage, WResultMessage} from '@/worker/types';
+import {
+    IWorkerContext,
+    MESSAGE_TYPE,
+    WErrorMessage,
+    WEvent,
+    WMessage,
+    WResultMessage,
+    WIdleMessage,
+} from '@/worker/types';
 import {Player, MOVE, Turn} from '@/common/types';
 
 import NewPlayer from '@/engine/PlayerFactory';
@@ -35,7 +43,7 @@ export default class BotWorker {
         });
     }
 
-    private handleWMessage(message: WMessage): Promise<WErrorMessage | WResultMessage | null> {
+    private handleWMessage(message: WMessage): Promise<WErrorMessage | WResultMessage | WIdleMessage | null> {
         return new Promise((resolve) => {
             switch (message.type) {
                 case MESSAGE_TYPE.BOOT:
@@ -47,7 +55,7 @@ export default class BotWorker {
                             workerID: message.workerID,
                             correlationID: message.correlationID,
                             origin: MESSAGE_TYPE.BOOT,
-                            type: MESSAGE_TYPE.RESULT,
+                            type: MESSAGE_TYPE.IDLE,
                         });
                     });
                     break;
@@ -58,6 +66,7 @@ export default class BotWorker {
                         throw Error('worker is not booted, can not process request message');
                     }
                     const self = this;
+
                     const turn: Turn = {
                         position: message.content.position,
                         grid: message.content.grid,
@@ -73,7 +82,14 @@ export default class BotWorker {
                         },
                     };
                     this.player.act(turn);
-                    resolve(null);
+
+                    const idleMessage: WIdleMessage = {
+                        workerID: message.workerID,
+                        correlationID: message.correlationID,
+                        origin: MESSAGE_TYPE.REQUEST,
+                        type: MESSAGE_TYPE.IDLE,
+                    };
+                    resolve(idleMessage);
                     break;
                 default:
                     throw Error(`unknown message of type '${message.type}'`);

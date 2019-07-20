@@ -6,6 +6,7 @@ import {
     WResultMessage,
     WRequestMessage,
     WErrorMessage,
+    WIdleMessage,
 } from '@/worker/types';
 import {UUID, PLAYER_TYPE, Player, Turn, MOVE} from '@/common/types';
 
@@ -52,8 +53,8 @@ describe('Bot Worker', () => {
 
 
             setTimeout(() => {
-                const expectedBootResult: WResultMessage = {
-                    type: MESSAGE_TYPE.RESULT,
+                const expectedBootResult: WIdleMessage = {
+                    type: MESSAGE_TYPE.IDLE,
                     workerID,
                     correlationID,
                     origin: MESSAGE_TYPE.BOOT,
@@ -150,7 +151,7 @@ describe('Bot Worker', () => {
             }, 20);
         });
 
-        test('eventually posts response on players\' decisions', (done) => {
+        test('eventually posts response on players\' decisions and idle message when done', (done) => {
             Object.values(mockWorkerContext).forEach((method) => method.mockClear());
 
             mockPlayer.act.mockImplementationOnce((turn: Turn) => {
@@ -193,11 +194,19 @@ describe('Bot Worker', () => {
                     content: MOVE.LARBOARD,
                 };
 
+                const expectedIdleMessage: WIdleMessage = {
+                    type: MESSAGE_TYPE.IDLE,
+                    origin: MESSAGE_TYPE.REQUEST,
+                    workerID,
+                    correlationID,
+                };
+
                 expect(mockPlayer.act).toHaveBeenCalledTimes(1);
 
-                expect(mockWorkerContext.postMessage).toHaveBeenCalledTimes(2);
+                expect(mockWorkerContext.postMessage).toHaveBeenCalledTimes(3);
                 expect(mockWorkerContext.postMessage).toHaveBeenNthCalledWith(1, expectedFirstMessage);
                 expect(mockWorkerContext.postMessage).toHaveBeenNthCalledWith(2, expectedSecondMessage);
+                expect(mockWorkerContext.postMessage).toHaveBeenNthCalledWith(3, expectedIdleMessage);
 
                 done();
             }, 20);

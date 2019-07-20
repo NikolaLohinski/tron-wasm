@@ -6,6 +6,12 @@ export const enum MOVE {
     STARBOARD = 'STARBOARD',
 }
 
+export const enum GAME_STATE {
+    STOPPED = 'STOPPED',
+    RUNNING = 'RUNNING',
+    FINISHED = 'FINISHED',
+}
+
 export const enum PLAYER_TYPE {
     TS = 'TS',
 }
@@ -19,7 +25,7 @@ export interface Position {
 export interface Grid {
     sizeX: number;
     sizeY: number;
-    filled: {[xy: string]: boolean};
+    filled: {[xy: string]: UUID[]};
 }
 
 export type DecideFunc = (direction: MOVE) => void;

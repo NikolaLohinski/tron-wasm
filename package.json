@@ -6,7 +6,10 @@
     "serve": "vue-cli-service serve",
     "build": "vue-cli-service build",
     "lint": "vue-cli-service lint",
-    "test": "vue-cli-service test:unit --silent"
+    "test": "vue-cli-service test:unit --silent",
+    "test:watch": "npm run test -- --watch",
+    "test:verbose": "vue-cli-service test:unit",
+    "test:watch,verbose": "npm run test:verbose -- --watch"
   },
   "dependencies": {
     "core-js": "^2.6.5",

@@ -8,14 +8,32 @@
 import Game from '@/engine/Game';
 import { Component, Vue } from 'vue-property-decorator';
 import { generateUUID } from '@/common/utils';
+import { GAME_STATE } from './common/types';
 
 @Component
 export default class App extends Vue {
-  private mounted() {
-    const game: Game = new Game(15, 15);
-    game.start().then(() => {
+  private game: Game;
+
+  constructor() {
+    super();
+    this.game = new Game(15, 15, 100, 2);
+  }
+
+  private run() {
+    this.game.tick().then((gameState) => {
       // tslint:disable-next-line
-      console.log('[VUE]: game has started', game);
+      console.log('[VUE]: game has been ticked, new state is', gameState);
+      if (gameState === GAME_STATE.RUNNING) {
+        this.run();
+      }
+    });
+  }
+
+  private mounted() {
+    this.game.start().then(() => {
+      // tslint:disable-next-line
+      console.log('[VUE]: game has been started');
+      this.run();
     });
   }
 }

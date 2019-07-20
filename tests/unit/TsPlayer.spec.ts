@@ -1,6 +1,6 @@
 import * as TypeMoq from 'typemoq';
 
-import {DecideFunc, Player, PLAYER_TYPE, Turn} from '@/common/types';
+import {DecideFunc, MOVE, Player, PLAYER_TYPE, Turn} from '@/common/types';
 
 import NewPlayer from '@/engine/PlayerFactory';
 
@@ -29,6 +29,20 @@ describe('TsPlayer', () => {
                             x: 0,
                             y: 1,
                         },
+                        targets: {
+                            [MOVE.FORWARD]: {
+                                x: 2,
+                                y: 1,
+                            },
+                            [MOVE.LARBOARD]: {
+                                x: 1,
+                                y: 0,
+                            },
+                            [MOVE.STARBOARD]: {
+                                x: 1,
+                                y: 2,
+                            },
+                        },
                     },
                     grid: {
                       sizeX: 15,
@@ -38,7 +52,7 @@ describe('TsPlayer', () => {
                     decide: decideMock.object,
                 };
                 tsPlayer.act(turn);
-                decideMock.verify((m) => m(TypeMoq.It.isAny()), TypeMoq.Times.once());
+                decideMock.verify((m) => m(TypeMoq.It.isAny()), TypeMoq.Times.atLeastOnce());
             });
         });
     });

@@ -18,7 +18,7 @@ export const enum MOVE {
 }
 
 export const enum GAME_STATUS {
-    STOPPED = 'STOPPED',
+    CLEAR = 'CLEAR',
     RUNNING = 'RUNNING',
     FINISHED = 'FINISHED',
 }
@@ -31,6 +31,13 @@ export interface Position {
     x: number;
     y: number;
     prev?: Position;
+    targets?: MoveTarget;
+}
+
+export interface MoveTarget {
+    [MOVE.FORWARD]: Position;
+    [MOVE.STARBOARD]: Position;
+    [MOVE.LARBOARD]: Position;
 }
 
 export interface Grid {

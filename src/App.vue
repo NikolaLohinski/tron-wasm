@@ -1,21 +1,48 @@
 <template>
   <section id="app">
-    <img :src="require('@/assets/tron.png')" class="temporary-logo"/>
+    <transition name="fade">
+      <div class="loader" v-if="loading">
+        <img :src="require('@/assets/tron.png')" class="temporary-logo"/>
+      </div>
+      <article v-else>
+        <Grid class="grid"/>
+      </article>
+    </transition>
   </section>
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+import {Component, Vue, Watch} from 'vue-property-decorator';
+import {GAME_STATUS} from '@/common/types';
 
-@Component
+import Grid from '@/components/Grid.vue';
+
+@Component({
+  components: {
+    Grid,
+  },
+})
 export default class App extends Vue {
+  private loading: boolean = true;
+
+  get status(): GAME_STATUS {
+    return this.$store.getters.status;
+  }
+
+  @Watch('status', { immediate: true })
+  private onPersonChanged1(newStatus: GAME_STATUS) {
+    if (newStatus !== GAME_STATUS.CLEAR) {
+      this.loading = false;
+    }
+  }
+
   private mounted() {
     this.$store.dispatch('run').then();
   }
 }
 </script>
 
-<style lang="scss">
+<style lang="scss" scoped>
   section#app {
     position: fixed;
     top: 0;
@@ -23,20 +50,33 @@ export default class App extends Vue {
     left: 0;
     right: 0;
     background-color: #000;
-    img.temporary-logo {
+    div.loader {
       position: absolute;
       top: 50%;
       left: 50%;
       transform: translate(-50%,-50%);
-      width: 75px;
-      opacity: 0.8;
-      user-select: none;
-      @keyframes rotate360 {
-        0% { transform: translate(-50%,-50%) rotate(0) scale(1) }
-        50% { transform: translate(-50%,-50%) rotate(360deg) scale(0.9) }
-        100% { transform: translate(-50%,-50%) rotate(720deg) scale(1) }
+      transition: opacity .2s;
+      img.temporary-logo {
+        position: absolute;
+        width: 75px;
+        opacity: 0.8;
+        user-select: none;
+        @keyframes rotate360 {
+          0% { transform: translate(-50%,-50%) rotate(0) scale(1) }
+          50% { transform: translate(-50%,-50%) rotate(360deg) scale(0.9) }
+          100% { transform: translate(-50%,-50%) rotate(720deg) scale(1) }
+        }
+        animation: infinite 3s rotate360 linear;
       }
-      animation: infinite 3s rotate360 linear;
     }
+    .grid {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%,-50%);
+    }
+  }
+  .fade-enter, .fade-leave-to {
+    opacity: 0;
   }
 </style>

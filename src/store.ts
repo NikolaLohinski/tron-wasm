@@ -1,15 +1,21 @@
 import Vue from 'vue';
 import Vuex from 'vuex';
 import Game from '@/engine/Game';
-import {GAME_STATUS, PlayerMetadata, Position, UUID} from '@/common/types';
+import {Color, GAME_STATUS, PlayerMetadata, Position, UUID} from '@/common/types';
 import {randomColor} from '@/common/utils';
 
 Vue.use(Vuex);
 
+const grid = {
+  sizeX: 20,
+  sizeY: 20,
+};
+
 export default new Vuex.Store({
   state: {
-    game: new Game(15, 15, 50, 2) as Game,
-    status: GAME_STATUS.STOPPED as GAME_STATUS,
+    grid,
+    game: new Game(grid.sizeX, grid.sizeY, 50, 4) as Game,
+    status: GAME_STATUS.CLEAR as GAME_STATUS,
     ids: [] as UUID[],
     metadata: {} as { [id: string]: PlayerMetadata },
     positions: {} as { [id: string]: Position},
@@ -18,14 +24,20 @@ export default new Vuex.Store({
     game(state): Game {
       return state.game;
     },
+    grid(state): { sizeX: number, sizeY: number } {
+      return state.grid;
+    },
     status(state): GAME_STATUS {
       return state.status;
     },
     ids(state): string[] {
       return state.ids;
     },
-    metadata(state): PlayerMetadata[] {
-      return Object.values(state.metadata);
+    metadata(state): { [id: string]: PlayerMetadata } {
+      return state.metadata;
+    },
+    positions(state): { [id: string]: Position } {
+      return state.positions;
     },
   },
   mutations: {
@@ -38,7 +50,10 @@ export default new Vuex.Store({
     ids(state, ids: string[]): void {
       state.ids = ids;
       state.metadata = ids.reduce((allMetadata: { [id: string]: PlayerMetadata }, id: UUID) => {
-        const color = randomColor();
+        let color: Color;
+        do {
+          color = randomColor();
+        } while (Object.values(allMetadata).some((c) => c.name === color.name ));
         return {
           ...allMetadata,
           [id]: {
@@ -57,23 +72,17 @@ export default new Vuex.Store({
     run(state): Promise<void> {
       return new Promise((resolve) => {
         switch (state.getters.status) {
-          case GAME_STATUS.STOPPED:
+          case GAME_STATUS.CLEAR:
             state.getters.game.start().then((status: GAME_STATUS) => {
               state.commit('status', status);
-              // tslint:disable-next-line
-              console.log('[STORE]: game started');
               state.commit('ids', state.getters.game.getPlayersIDs());
               state.dispatch('run').then(resolve);
             });
             break;
           case GAME_STATUS.FINISHED:
-            // tslint:disable-next-line
-            console.log('[STORE]: game finished');
             resolve();
             break;
           case GAME_STATUS.RUNNING:
-            // tslint:disable-next-line
-            console.log('[STORE]: game running');
             state.getters.game.tick().then((status: GAME_STATUS) => {
               state.commit('status', status);
               state.getters.ids.forEach((id: UUID) => {

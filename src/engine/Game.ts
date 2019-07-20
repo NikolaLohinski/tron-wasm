@@ -1,11 +1,42 @@
-import Bot, { IBot } from '@/engine/Bot';
-import { generateUUID } from '@/common/utils';
-import {UUID, PLAYER_TYPE, Position, Grid, MOVE, GAME_STATUS} from '@/common/types';
+import Bot, {IBot} from '@/engine/Bot';
+import {generateUUID} from '@/common/utils';
+import {GAME_STATUS, Grid, MOVE, MoveTarget, PLAYER_TYPE, Position, UUID} from '@/common/types';
 
 const DEFAULT_NUMBER_PLAYERS = 2;
 const DEFAULT_TURN_TIMEOUT_MS = 100;
 
 export default class Game {
+
+    private static positionKey(position: Position): string {
+        return `${position.x}-${position.y}`;
+    }
+
+    private static positionMoveTargets(position: Position): MoveTarget {
+        // @ts-ignore
+        const abscissa = (position.x - position.prev.x !== 0) ? 'x' : 'y';
+        const ordinate = (abscissa === 'x') ? 'y' : 'x';
+        // @ts-ignore
+        const delta = position[abscissa] - position.prev[abscissa];
+
+        return {
+            // @ts-ignore
+            [MOVE.FORWARD]: {
+                [abscissa]: position[abscissa] + delta,
+                [ordinate]: position[ordinate],
+            },
+            // @ts-ignore
+            [MOVE.LARBOARD]: {
+                [abscissa]: position[abscissa],
+                [ordinate]: position[ordinate] + delta,
+            },
+            // @ts-ignore
+            [MOVE.STARBOARD]: {
+                [abscissa]: position[abscissa],
+                [ordinate]: position[ordinate] - delta,
+            },
+        };
+    }
+
     private readonly players: { [id: string]: IBot };
     private readonly turnTimeoutMs: number;
     private readonly nbPlayers: number;
@@ -18,7 +49,7 @@ export default class Game {
     private currentCorrelationID: UUID = '';
 
     constructor(sizeX: number, sizeY: number, turnTimeoutMs?: number, nbPlayers?: number) {
-        this.state = GAME_STATUS.STOPPED;
+        this.state = GAME_STATUS.CLEAR;
         this.grid = {
             sizeX,
             sizeY,
@@ -59,7 +90,7 @@ export default class Game {
                 return reject(Error('can not start a game that has already started'));
             }
 
-            if (![GAME_STATUS.STOPPED, GAME_STATUS.FINISHED].includes(this.state)) {
+            if (![GAME_STATUS.CLEAR, GAME_STATUS.FINISHED].includes(this.state)) {
                 return reject(Error('can not start a game that is not stopped or finished'));
             }
 
@@ -90,7 +121,9 @@ export default class Game {
             }
             const correlationID = generateUUID();
             this.currentCorrelationID = correlationID;
-            Object.entries(this.players).forEach(([id, player]) => {
+            Object.entries(this.players).filter(([id, _]: [UUID, IBot]) => {
+                return !this.deadPlayers.includes(id);
+            }).forEach(([id, player]: [UUID, IBot]) => {
                 const userID = id;
 
                 this.movesBuffer[userID] = MOVE.FORWARD;
@@ -154,80 +187,65 @@ export default class Game {
     }
 
     private resolveTurn() {
-        this.resolvePlayersMoves();
-        this.resolveInvalidPositions();
-        this.state = (this.deadPlayers.length > this.nbPlayers - 2) ? GAME_STATUS.FINISHED : GAME_STATUS.RUNNING;
+        this.resolvePlayersPositions();
+        this.resolveDeadPlayers();
+        this.state = (this.nbPlayers - this.deadPlayers.length < 2) ? GAME_STATUS.FINISHED : GAME_STATUS.RUNNING;
     }
 
-    private resolvePlayersMoves(): void {
-        Object.entries(this.movesBuffer).forEach(([userID, move]: [UUID, MOVE]) => {
+    private resolvePlayersPositions(): void {
+        Object.entries(this.movesBuffer).filter(([id]: [UUID, MOVE]) => {
+            return !this.deadPlayers.includes(id);
+        }).forEach(([userID, move]: [UUID, MOVE]) => {
             const position = this.positions[userID];
-            // @ts-ignore
-            const abscissa = (position.x - position.prev.x !== 0) ? 'x' : 'y';
-            const ordinate = (abscissa === 'x') ? 'y' : 'x';
-            // @ts-ignore
-            const delta = position[abscissa] - position.prev[abscissa];
 
             if (position.prev) {
                 delete(position.prev.prev);
             }
+            const newPosition = Game.positionMoveTargets(position)[move];
 
-            const newPosition: Position = {
-                x: -1,
-                y: -1,
-                prev: position,
-            };
-            switch (move) {
-                case MOVE.FORWARD:
-                    newPosition[abscissa] = position[abscissa] + delta;
-                    newPosition[ordinate] = position[ordinate];
-                    break;
-                case MOVE.STARBOARD:
-                    newPosition[abscissa] = position[abscissa];
-                    newPosition[ordinate] = position[ordinate] - delta;
-                    break;
-                case MOVE.LARBOARD:
-                    newPosition[abscissa] = position[abscissa];
-                    newPosition[ordinate] = position[ordinate] + delta;
-                    break;
-                default:
-                    throw Error(`unknown move "${move}"`);
-            }
+            newPosition.prev = position;
+            newPosition.targets = Game.positionMoveTargets(newPosition);
 
             this.positions[userID] = newPosition;
+
             this.fillGrid(userID, newPosition);
         });
         return;
     }
 
-    private resolveInvalidPositions(): void {
-        Object.entries(this.positions).forEach(([userID, position]: [UUID, Position]) => {
-            if (position.x < 0 || position.x >= this.grid.sizeX || position.y < 0 || position.y >= this.grid.sizeY) {
-                this.deadPlayers.push(userID);
-                return;
+    private resolveDeadPlayers(): void {
+        this.deadPlayers = Object.entries(this.positions).filter(([id, position]: [UUID, Position]) => {
+            if (position.x < 0
+                || position.x >= this.grid.sizeX
+                || position.y < 0
+                || position.y >= this.grid.sizeY
+            ) {
+                return true;
             }
-            if (this.isGridInConflict(position)) {
-                this.deadPlayers.push(userID);
-                return;
+            const conflictIDs = this.getConflictIds(position);
+            if (conflictIDs.length === 0) {
+                return false;
             }
-        });
+            if (conflictIDs.length > 1 || conflictIDs[0] !== id) {
+                return true;
+            }
+        }).map(([userID]: [UUID, Position]) => userID);
         return;
     }
 
-    private isGridInConflict(position: Position): boolean {
+    private getConflictIds(position: Position): UUID[] {
         if (!this.isGridFilled(position)) {
-            return false;
+            return [];
         }
-        const key = `${position.x}-${position.y}`;
-        return this.grid.filled[key].length > 1;
+        return this.grid.filled[Game.positionKey(position)];
     }
 
     private isGridFilled(position: Position): boolean {
-        return this.grid.filled.hasOwnProperty(`${position.x}-${position.y}`);
+        return this.grid.filled.hasOwnProperty(Game.positionKey(position));
     }
 
     private fillGrid(userID: UUID, position: Position): void {
-        const key = `${position.x}-${position.y}`;
+        const key = Game.positionKey(position);
         if (!this.grid.filled.hasOwnProperty(key)) {
             this.grid.filled[key] = [];
         }

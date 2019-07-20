@@ -110,7 +110,7 @@ export default class Bot implements IBot {
         switch (message.type) {
             case MESSAGE_TYPE.IDLE:
                 // tslint:disable-next-line
-                console.log(`[BOT]: worker ${this.workerID} is idle`);
+                // console.log(`[BOT]: worker ${this.workerID} is idle`);
                 if (message.origin === MESSAGE_TYPE.BOOT) {
                     (this.bootResolver as any)();
                 }
@@ -119,7 +119,7 @@ export default class Bot implements IBot {
             case MESSAGE_TYPE.RESULT:
                 const resultMessage = message as WResultMessage;
                 // tslint:disable-next-line
-                console.log(`[BOT]: worker ${this.workerID} moved`, message.content);
+                // console.log(`[BOT]: worker ${this.workerID} moved`, message.content);
                 (this.actFunction as any)(message.correlationID, resultMessage.content);
                 break;
             case MESSAGE_TYPE.ERROR:

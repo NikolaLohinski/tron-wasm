@@ -1,4 +1,4 @@
-import {IWorker, IWorkerContext} from '@/worker/types';
+import {IWorkerContext} from '@/worker/types';
 import BotWorker from '@/worker/BotWorker';
 
 const ctx: IWorkerContext = self as any;

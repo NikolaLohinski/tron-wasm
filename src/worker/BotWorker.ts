@@ -48,7 +48,7 @@ export default class BotWorker {
             switch (message.type) {
                 case MESSAGE_TYPE.BOOT:
                     // tslint:disable-next-line
-                    console.log(`[WORKER: ${message.workerID}]: boot order received`, message);
+                    // console.log(`[WORKER: ${message.workerID}]: boot order received`, message);
                     NewPlayer(message.playerType).then((player: Player) => {
                         this.player = player;
                         resolve({
@@ -61,7 +61,7 @@ export default class BotWorker {
                     break;
                 case MESSAGE_TYPE.REQUEST:
                     // tslint:disable-next-line
-                    console.log(`[WORKER: ${message.workerID}]: request received`, message.content.position);
+                    // console.log(`[WORKER: ${message.workerID}]: request received`, message.content.position);
                     if (!this.player) {
                         throw Error('worker is not booted, can not process request message');
                     }

@@ -7,6 +7,7 @@ const mockBot = (Bot as any) as jest.Mock<typeof Bot>;
 
 import {IBot} from '@/engine/Bot';
 import Game from '@/engine/Game';
+import {GAME_STATUS, MOVE} from '@/common/types';
 
 describe('Game', () => {
     beforeEach(() => {
@@ -91,14 +92,70 @@ describe('Game', () => {
         const mockBot2: TypeMoq.IMock<IBot> = TypeMoq.Mock.ofType<IBot>();
 
         beforeEach(() => {
-            mockBot1.reset();
-            mockBot2.reset();
-
             // Mock new Bot instantiation
             mockBot.mockImplementationOnce(() => (mockBot1.object as any));
             mockBot.mockImplementationOnce(() => (mockBot2.object as any));
 
-            game = new Game(15, 15);
+            game = new Game(15, 15, 200, 2);
+        });
+
+        test('should request action from each player', async () => {
+
+            await game.start();
+
+            mockBot1.reset();
+            mockBot1.setup((m) => m.isIdle()).returns(() => true);
+
+            mockBot2.reset();
+            mockBot2.setup((m) => m.isIdle()).returns(() => true);
+
+            const state = await game.tick();
+
+            mockBot1.verify((m) => m.requestAction(
+                TypeMoq.It.isAnyString(), TypeMoq.It.isAny(), TypeMoq.It.isAny(), TypeMoq.It.isAny(),
+            ), TypeMoq.Times.exactly(1));
+
+            mockBot2.verify((m) => m.requestAction(
+                TypeMoq.It.isAnyString(), TypeMoq.It.isAny(), TypeMoq.It.isAny(), TypeMoq.It.isAny(),
+            ), TypeMoq.Times.exactly(1));
+
+            expect(state).toMatch(new RegExp(`${GAME_STATUS.RUNNING}|${GAME_STATUS.FINISHED}`));
+        });
+
+        test('should reboot non idle bots at the end of turn', async () => {
+            await game.start();
+
+            mockBot1.reset();
+            mockBot1.setup((m) => m.isIdle()).returns(() => true);
+
+            mockBot2.reset();
+            mockBot2.setup((m) => m.isIdle()).returns(() => false);
+
+            const state = await game.tick();
+
+            mockBot1.verify((m) => m.boot(TypeMoq.It.isAnyString()), TypeMoq.Times.exactly(0));
+            mockBot2.verify((m) => m.boot(TypeMoq.It.isAnyString()), TypeMoq.Times.exactly(1));
+
+            expect(state).toMatch(new RegExp(`${GAME_STATUS.RUNNING}|${GAME_STATUS.FINISHED}`));
+        });
+
+        test('should not throw an error if a player is out of sync', async () => {
+            await game.start();
+
+            mockBot1.reset();
+            mockBot1.setup((m) => m.isIdle()).returns(() => true);
+
+            mockBot2.reset();
+            mockBot2.setup((m) => m.isIdle()).returns(() => true);
+            mockBot2.setup((m) => m.requestAction(
+                TypeMoq.It.isAnyString(), TypeMoq.It.isAny(), TypeMoq.It.isAny(), TypeMoq.It.isAny()),
+            ).returns((corr, pos, grid, act) => {
+                act('unknown correlation ID', MOVE.FORWARD);
+            });
+
+            const state = await game.tick();
+
+            expect(state).toMatch(new RegExp(`${GAME_STATUS.RUNNING}|${GAME_STATUS.FINISHED}`));
         });
 
         test('should reject with an error if game has not been started', () => {

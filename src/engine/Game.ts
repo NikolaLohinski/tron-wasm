@@ -1,6 +1,6 @@
 import Bot, { IBot } from '@/engine/Bot';
 import { generateUUID } from '@/common/utils';
-import {UUID, PLAYER_TYPE, Position, Grid, MOVE, GAME_STATE} from '@/common/types';
+import {UUID, PLAYER_TYPE, Position, Grid, MOVE, GAME_STATUS} from '@/common/types';
 
 const DEFAULT_NUMBER_PLAYERS = 2;
 const DEFAULT_TURN_TIMEOUT_MS = 100;
@@ -13,12 +13,12 @@ export default class Game {
     private readonly positions: { [id: string]: Position };
     private readonly movesBuffer: {[id: string]: MOVE };
     private deadPlayers: UUID[];
-    private state: GAME_STATE;
+    private state: GAME_STATUS;
 
     private currentCorrelationID: UUID = '';
 
     constructor(sizeX: number, sizeY: number, turnTimeoutMs?: number, nbPlayers?: number) {
-        this.state = GAME_STATE.STOPPED;
+        this.state = GAME_STATUS.STOPPED;
         this.grid = {
             sizeX,
             sizeY,
@@ -53,13 +53,13 @@ export default class Game {
         return position;
     }
 
-    public start(): Promise<GAME_STATE | Error> {
+    public start(): Promise<GAME_STATUS | Error> {
         return new Promise((resolve, reject) => {
             if (this.currentCorrelationID !== '') {
                 return reject(Error('can not start a game that has already started'));
             }
 
-            if (![GAME_STATE.STOPPED, GAME_STATE.FINISHED].includes(this.state)) {
+            if (![GAME_STATUS.STOPPED, GAME_STATUS.FINISHED].includes(this.state)) {
                 return reject(Error('can not start a game that is not stopped or finished'));
             }
 
@@ -71,7 +71,7 @@ export default class Game {
             const playersBoots = Object.values(this.players).map((player: IBot) => player.boot(correlationID));
 
             Promise.all(playersBoots).then(() => {
-                const state = GAME_STATE.RUNNING;
+                const state = GAME_STATUS.RUNNING;
                 this.state = state;
                 resolve(state);
             });
@@ -80,12 +80,12 @@ export default class Game {
         });
     }
 
-    public tick(): Promise<GAME_STATE | Error> {
+    public tick(): Promise<GAME_STATUS | Error> {
         return new Promise((resolve) => {
             if (this.currentCorrelationID === '') {
                 throw Error('can not tick a game that has not been started');
             }
-            if (this.state !== GAME_STATE.RUNNING) {
+            if (this.state !== GAME_STATUS.RUNNING) {
                 throw Error('can not tick a game that is not running');
             }
             const correlationID = generateUUID();
@@ -102,7 +102,6 @@ export default class Game {
                     } else {
                         // tslint:disable-next-line
                         console.error(`received correlation ID (${corr}) differs from current one (${correlationID})`);
-                        throw Error('correlation ID out of sync');
                     }
                 });
             });
@@ -112,7 +111,7 @@ export default class Game {
 
                 this.resolveTurn();
 
-                if (this.state !== GAME_STATE.RUNNING) {
+                if (this.state !== GAME_STATUS.RUNNING) {
                     Object.values(this.players).forEach((player) => player.destroy());
                     resolve(this.state);
                 } else {
@@ -133,8 +132,8 @@ export default class Game {
             let x: number;
             let y: number;
             do {
-                x = Math.floor(Math.random() * this.grid.sizeX);
-                y = Math.floor(Math.random() * this.grid.sizeY);
+                x = 1 + Math.floor(Math.random() * (this.grid.sizeX - 2));
+                y = 1 + Math.floor(Math.random() * (this.grid.sizeY - 2));
             } while (this.isGridFilled({ x, y }));
 
             const possiblePreviousPositions: Position[] = [
@@ -157,7 +156,7 @@ export default class Game {
     private resolveTurn() {
         this.resolvePlayersMoves();
         this.resolveInvalidPositions();
-        this.state = (this.deadPlayers.length > this.nbPlayers - 2) ? GAME_STATE.FINISHED : GAME_STATE.RUNNING;
+        this.state = (this.deadPlayers.length > this.nbPlayers - 2) ? GAME_STATUS.FINISHED : GAME_STATUS.RUNNING;
     }
 
     private resolvePlayersMoves(): void {
@@ -168,6 +167,10 @@ export default class Game {
             const ordinate = (abscissa === 'x') ? 'y' : 'x';
             // @ts-ignore
             const delta = position[abscissa] - position.prev[abscissa];
+
+            if (position.prev) {
+                delete(position.prev.prev);
+            }
 
             const newPosition: Position = {
                 x: -1,

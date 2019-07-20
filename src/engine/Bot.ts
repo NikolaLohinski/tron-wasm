@@ -110,7 +110,7 @@ export default class Bot implements IBot {
         switch (message.type) {
             case MESSAGE_TYPE.IDLE:
                 // tslint:disable-next-line
-                console.log(`[MAIN]: worker ${this.workerID} is idle`);
+                console.log(`[BOT]: worker ${this.workerID} is idle`);
                 if (message.origin === MESSAGE_TYPE.BOOT) {
                     (this.bootResolver as any)();
                 }
@@ -119,16 +119,16 @@ export default class Bot implements IBot {
             case MESSAGE_TYPE.RESULT:
                 const resultMessage = message as WResultMessage;
                 // tslint:disable-next-line
-                console.log(`[MAIN]: worker ${this.workerID} moved`, message.content);
+                console.log(`[BOT]: worker ${this.workerID} moved`, message.content);
                 (this.actFunction as any)(message.correlationID, resultMessage.content);
                 break;
             case MESSAGE_TYPE.ERROR:
                 // tslint:disable-next-line
-                console.error(`[MAIN]: worker ${this.workerID} responded with an error`, message.error);
+                console.error(`[BOT]: worker ${this.workerID} responded with an error`, message.error);
                 throw Error(`worker "${message.workerID}" error`);
             default:
                 // tslint:disable-next-line
-                console.error(`[MAIN]: worker ${this.workerID} can not handled message of type`, message.type);
+                console.error(`[BOT]: worker ${this.workerID} can not handled message of type`, message.type);
                 throw TypeError(`unhandled message type "${message.type}"`);
         }
     }

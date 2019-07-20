@@ -1,12 +1,23 @@
 export type UUID = string;
 
+export interface Color {
+    name: string;
+    code: string;
+}
+
+export interface PlayerMetadata {
+    name: string;
+    id: UUID;
+    color: string;
+}
+
 export const enum MOVE {
     FORWARD = 'FORWARD',
     LARBOARD = 'LARBOARD',
     STARBOARD = 'STARBOARD',
 }
 
-export const enum GAME_STATE {
+export const enum GAME_STATUS {
     STOPPED = 'STOPPED',
     RUNNING = 'RUNNING',
     FINISHED = 'FINISHED',

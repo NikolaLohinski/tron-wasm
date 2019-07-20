@@ -10,6 +10,7 @@ import {
     WRequestMessage,
     WResultMessage,
     WIdleMessage,
+    WErrorMessage,
 } from '@/worker/types';
 
 import Bot from '@/engine/Bot';
@@ -149,6 +150,17 @@ describe('Bot', () => {
         });
     });
 
+    describe('destroy', () => {
+       test('should terminate worker and stop being idle', () => {
+           bot = new Bot(botID, playerType);
+
+           bot.destroy();
+
+           expect(bot.isIdle()).toBeFalsy();
+           MockBotWorker.verify((m) => m.terminate(), TypeMoq.Times.once());
+       });
+    });
+
     describe('[PRIVATE] handleWEvent', () => {
         let bootResolved: boolean;
         beforeEach(() => {
@@ -177,6 +189,40 @@ describe('Bot', () => {
             expect(bootResolved).toEqual(true);
         });
 
+        test('should act on result message', () => {
+            const correlationID = 'd64385ef-17ed-4891-bb67-9273816be97f';
+            const returnedWMessage: WResultMessage = {
+                workerID: expect.anything(),
+                correlationID,
+                type: MESSAGE_TYPE.RESULT,
+                content: MOVE.STARBOARD,
+                origin: MESSAGE_TYPE.REQUEST,
+            };
+
+            const mockActFunction = jest.fn();
+            // tslint:disable-next-line
+            bot['actFunction'] = mockActFunction;
+
+            // tslint:disable-next-line
+            bot['handleWEvent']({ data: returnedWMessage} as WEvent);
+
+            // tslint:disable-next-line
+            expect(mockActFunction).toHaveBeenCalledTimes(1);
+            expect(mockActFunction).toHaveBeenCalledWith(correlationID, MOVE.STARBOARD);
+        });
+
+        test('should throw an error on error from worker', () => {
+            const returnedWMessage: WErrorMessage = {
+                workerID: expect.anything(),
+                correlationID: 'd64385ef-17ed-4891-bb67-9273816be97f',
+                type: MESSAGE_TYPE.ERROR,
+                error: 'error sent from worker',
+            };
+
+            // tslint:disable-next-line
+            expect(() => bot['handleWEvent']({ data: returnedWMessage} as WEvent)).toThrowError();
+        });
+
         test('should throw an error if trying to handle event without booting', () => {
             // tslint:disable-next-line
             bot['bootResolver'] = undefined;
@@ -200,28 +246,6 @@ describe('Bot', () => {
             };
             // tslint:disable-next-line
             expect(() =>  bot['handleWEvent']({ data: returnedWMessage } as WEvent)).toThrow(TypeError);
-        });
-
-        test('should throw an error on unhandled message type', () => {
-            const correlationID = 'd64385ef-17ed-4891-bb67-9273816be97f';
-            const returnedWMessage: WResultMessage = {
-                workerID: expect.anything(),
-                correlationID,
-                type: MESSAGE_TYPE.RESULT,
-                content: MOVE.STARBOARD,
-                origin: MESSAGE_TYPE.REQUEST,
-            };
-
-            const mockActFunction = jest.fn();
-            // tslint:disable-next-line
-            bot['actFunction'] = mockActFunction;
-
-            // tslint:disable-next-line
-            bot['handleWEvent']({ data: returnedWMessage} as WEvent);
-
-            // tslint:disable-next-line
-            expect(mockActFunction).toHaveBeenCalledTimes(1);
-            expect(mockActFunction).toHaveBeenCalledWith(correlationID, MOVE.STARBOARD);
         });
     });
 

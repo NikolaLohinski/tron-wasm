@@ -63,7 +63,7 @@ export default class Game {
         this.deadPlayers = [];
         for (let i = 0; i < this.nbPlayers; i++) {
             const id = generateUUID();
-            this.players[id] = new Bot(id, PLAYER_TYPE.TS);
+            this.players[id] = new Bot(id, PLAYER_TYPE.TS, 5);
             this.movesBuffer[id] = MOVE.FORWARD;
             this.positions[id] = {
                 x: -1,
@@ -74,6 +74,10 @@ export default class Game {
 
     public getPlayersIDs(): UUID[] {
         return Object.keys(this.players);
+    }
+
+    public isDead(playerID: UUID): boolean {
+        return this.deadPlayers.includes(playerID);
     }
 
     public getPosition(playerID: UUID): Position {

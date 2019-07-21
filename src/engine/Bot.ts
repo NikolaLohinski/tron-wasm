@@ -29,14 +29,16 @@ export default class Bot implements IBot {
     private readonly id: UUID;
     private workerID: UUID = '';
     private readonly playerType: PLAYER_TYPE;
+    private readonly depth?: number;
     private bootTimeout: number;
     private idle: boolean;
 
-    constructor(id: UUID, playerType: PLAYER_TYPE) {
+    constructor(id: UUID, playerType: PLAYER_TYPE, depth?: number) {
         this.id = id;
         this.worker = new (BotWorker as any)();
         this.bootTimeout = -1;
         this.playerType = playerType;
+        this.depth = depth;
         this.idle = false;
     }
 
@@ -61,6 +63,7 @@ export default class Bot implements IBot {
                 correlationID,
                 type: MESSAGE_TYPE.BOOT,
                 playerType: this.playerType,
+                depth: this.depth,
             };
 
             this.worker.postMessage(bootMessage);

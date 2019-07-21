@@ -44,6 +44,9 @@ export default class Grid extends Vue {
             const cell = Grid.getCell(position);
             if (cell) {
                 cell.style.background = metadata.color;
+                if (!metadata.alive) {
+                    cell.setAttribute('dead', 'true');
+                }
             }
         });
     }
@@ -55,6 +58,10 @@ export default class Grid extends Vue {
                 const cell = Grid.getCell({ x, y });
                 if (cell) {
                     cell.style.background = '';
+                    const deadAttr = cell.getAttributeNode('dead');
+                    if (deadAttr) {
+                        cell.removeAttributeNode(deadAttr);
+                    }
                 }
             }
         }
@@ -66,7 +73,7 @@ export default class Grid extends Vue {
     table#grid {
         margin: 0 auto;
         border-collapse: collapse;
-        .cell {
+        td.cell {
             border: 1px solid #666;
             padding: 0;
             @media screen and (max-width: 650px) {
@@ -82,10 +89,17 @@ export default class Grid extends Vue {
                 height: 18px;
             }
         }
-        .wall {
+        td.wall {
             background: #aaaaaa;
             height: 5px;
             width: 5px;
+        }
+        td[dead='true'] {
+            @keyframes blink {
+                from { background: transparent }
+                to { background: #ff0000; }
+            }
+            animation: infinite .2s blink linear;
         }
     }
 </style>

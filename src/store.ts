@@ -14,7 +14,7 @@ const grid = {
 export default new Vuex.Store({
   state: {
     grid,
-    game: new Game(grid.sizeX, grid.sizeY, 50, 4) as Game,
+    game: new Game(grid.sizeX, grid.sizeY, 50, 3) as Game,
     status: GAME_STATUS.CLEAR as GAME_STATUS,
     ids: [] as UUID[],
     metadata: {} as { [id: string]: PlayerMetadata },
@@ -60,12 +60,18 @@ export default new Vuex.Store({
             id,
             name: `Player ${color.name}`,
             color : color.code,
+            alive: true,
           },
         };
       }, {});
     },
     position(state, { id, position }: { id: UUID, position: Position }): void {
       Vue.set(state.positions, id, position);
+    },
+    kill(state, id: UUID): void {
+      const metadata = state.metadata[id];
+      metadata.alive = false;
+      Vue.set(state.metadata, id, metadata);
     },
   },
   actions: {
@@ -87,6 +93,9 @@ export default new Vuex.Store({
               state.commit('status', status);
               state.getters.ids.forEach((id: UUID) => {
                 const position = state.getters.game.getPosition(id);
+                if (state.getters.game.isDead(id)) {
+                  state.commit('kill', id);
+                }
                 state.commit('position', { id, position });
               });
               state.dispatch('run').then(resolve);

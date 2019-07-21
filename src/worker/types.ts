@@ -22,6 +22,7 @@ interface WBaseMessage {
 export interface WBootMessage extends WBaseMessage {
     type: MESSAGE_TYPE.BOOT;
     playerType: PLAYER_TYPE;
+    depth?: number;
 }
 
 export interface WErrorMessage extends WBaseMessage {

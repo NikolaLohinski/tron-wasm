@@ -9,6 +9,7 @@ export interface PlayerMetadata {
     name: string;
     id: UUID;
     color: string;
+    alive: boolean;
 }
 
 export const enum MOVE {

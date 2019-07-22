@@ -7,14 +7,14 @@ import {randomColor} from '@/common/utils';
 Vue.use(Vuex);
 
 const grid = {
-  sizeX: 20,
-  sizeY: 20,
+  sizeX: 25,
+  sizeY: 25,
 };
 
 export default new Vuex.Store({
   state: {
     grid,
-    game: new Game(grid.sizeX, grid.sizeY, 50, 3) as Game,
+    game: new Game(grid.sizeX, grid.sizeY, 50, 6) as Game,
     status: GAME_STATUS.CLEAR as GAME_STATUS,
     ids: [] as UUID[],
     metadata: {} as { [id: string]: PlayerMetadata },
@@ -58,8 +58,8 @@ export default new Vuex.Store({
           ...allMetadata,
           [id]: {
             id,
+            color,
             name: `Player ${color.name}`,
-            color : color.code,
             alive: true,
           },
         };

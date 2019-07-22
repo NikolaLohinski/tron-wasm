@@ -4,8 +4,9 @@
       <div class="loader" v-if="loading">
         <img :src="require('@/assets/tron.png')" class="temporary-logo"/>
       </div>
-      <article v-else>
+      <article class="body" v-else>
         <Grid class="grid"/>
+        <Scores class="scores"/>
       </article>
     </transition>
   </section>
@@ -16,10 +17,12 @@ import {Component, Vue, Watch} from 'vue-property-decorator';
 import {GAME_STATUS} from '@/common/types';
 
 import Grid from '@/components/Grid.vue';
+import Scores from '@/components/Scores.vue';
 
 @Component({
   components: {
     Grid,
+    Scores,
   },
 })
 export default class App extends Vue {
@@ -50,13 +53,15 @@ export default class App extends Vue {
     left: 0;
     right: 0;
     background-color: #000;
+    color: #ddd;
+    font-family: Verdana,Arial,sans-serif;
     div.loader {
       position: absolute;
       top: 50%;
       left: 50%;
       transform: translate(-50%,-50%);
       transition: opacity .2s;
-      img.temporary-logo {
+      img.temporary-logodefault {
         position: absolute;
         width: 75px;
         opacity: 0.8;
@@ -69,11 +74,19 @@ export default class App extends Vue {
         animation: infinite 3s rotate360 linear;
       }
     }
-    .grid {
+    article.body {
       position: absolute;
       top: 50%;
-      left: 50%;
-      transform: translate(-50%,-50%);
+      left: 0;
+      white-space: nowrap;
+      transform: translateY(-50%);
+      width: 100%;
+      text-align: center;
+      .grid, .scores {
+        vertical-align: middle;
+        display: inline-block;
+        margin: 0 15px;
+      }
     }
   }
   .fade-enter, .fade-leave-to {

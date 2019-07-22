@@ -8,7 +8,7 @@ export interface Color {
 export interface PlayerMetadata {
     name: string;
     id: UUID;
-    color: string;
+    color: Color;
     alive: boolean;
 }
 

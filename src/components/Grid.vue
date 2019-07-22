@@ -43,7 +43,7 @@ export default class Grid extends Vue {
             const metadata = this.metadata(userID);
             const cell = Grid.getCell(position);
             if (cell) {
-                cell.style.background = metadata.color;
+                cell.style.background = metadata.color.code;
                 if (!metadata.alive) {
                     cell.setAttribute('dead', 'true');
                 }

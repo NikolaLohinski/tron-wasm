@@ -96,6 +96,7 @@ export default class Bot implements IBot {
         };
 
         this.worker.postMessage(requestMessage);
+        this.idle = false;
     }
 
     public destroy(): void {
@@ -106,15 +107,14 @@ export default class Bot implements IBot {
     private handleWEvent(event: WEvent): void {
         const message: WMessage = event.data;
 
-        if (!this.bootResolver && !this.isIdle()) {
-            throw Error('can not handle events on not booted worker');
-        }
-
         switch (message.type) {
             case MESSAGE_TYPE.IDLE:
                 // tslint:disable-next-line
                 // console.log(`[BOT]: worker ${this.workerID} is idle`);
                 if (message.origin === MESSAGE_TYPE.BOOT) {
+                    if (!this.bootResolver) {
+                        throw Error('can not handle events on not booted worker');
+                    }
                     (this.bootResolver as any)();
                 }
                 this.idle = true;

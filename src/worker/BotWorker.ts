@@ -49,7 +49,7 @@ export default class BotWorker {
                 case MESSAGE_TYPE.BOOT:
                     // tslint:disable-next-line
                     // console.log(`[WORKER: ${message.workerID}]: boot order received`, message);
-                    NewPlayer(message.playerType).then((player: Player) => {
+                    NewPlayer(message.playerType, message.depth).then((player: Player) => {
                         this.player = player;
                         resolve({
                             workerID: message.workerID,

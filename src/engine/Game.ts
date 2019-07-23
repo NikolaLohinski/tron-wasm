@@ -63,7 +63,7 @@ export default class Game {
         this.deadPlayers = [];
         for (let i = 0; i < this.nbPlayers; i++) {
             const id = generateUUID();
-            this.players[id] = new Bot(id, PLAYER_TYPE.TS, 5);
+            this.players[id] = new Bot(id, PLAYER_TYPE.TS, 8);
             this.movesBuffer[id] = MOVE.FORWARD;
             this.positions[id] = {
                 x: -1,

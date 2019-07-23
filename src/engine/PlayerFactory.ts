@@ -1,4 +1,4 @@
-import {DecideFunc, Grid, MOVE, Player, PLAYER_TYPE, Position, Turn} from '@/common/types';
+import {MOVE, Player, PLAYER_TYPE, Position, Turn} from '@/common/types';
 
 export default function NewPlayer(type: PLAYER_TYPE, depth?: number): Promise<Player> {
     return new Promise((resolve) => {
@@ -19,63 +19,41 @@ interface Action {
     origin: MOVE;
 }
 
+interface Context {
+    turn: Turn;
+    action?: Action;
+}
+
 const DEFAULT_TS_PLAYER_DEPTH = 5;
 
 class TsPlayer implements Player {
-    private readonly depth: number;
-    private action?: Action;
-    private grid?: Grid;
-    private decide?: DecideFunc;
-
-    constructor(depth?: number) {
-        this.depth = depth ? depth : DEFAULT_TS_PLAYER_DEPTH;
-    }
-
-    public act(turn: Turn): void {
-        this.action = undefined;
-        this.decide = turn.decide;
-        this.grid = turn.grid;
-
-        let children: Action[] = this.explore(1, turn.position, undefined);
-
-        for (let d = 0; d < this.depth; d++) {
-            const newChildren = [];
-            for (const child of children) {
-                newChildren.push(...this.explore(child.score, child.target, child.origin));
-            }
-            children = newChildren;
-        }
-
-        return;
-    }
-
-    private isInvalid(position: Position): boolean {
-        if (this.grid) {
+    private static isInvalid(ctx: Context, position: Position): boolean {
+        if (ctx.turn.grid) {
             return (
-                this.grid.filled.hasOwnProperty(`${position.x}-${position.y}`)
-                || position.x >= this.grid.sizeX
+                ctx.turn.grid.filled.hasOwnProperty(`${position.x}-${position.y}`)
+                || position.x >= ctx.turn.grid.sizeX
                 || position.x < 0
-                || position.y >= this.grid.sizeY
+                || position.y >= ctx.turn.grid.sizeY
                 || position.y < 0
             );
         }
         return false;
     }
 
-    private consumeAction(action: Action): void {
-        if (this.decide) {
-            if (!this.action) {
-                this.action = action;
-                this.decide(action.move);
+    private static consumeAction(ctx: Context, action: Action): void {
+        if (ctx.turn.decide) {
+            if (!ctx.action) {
+                ctx.action = action;
+                ctx.turn.decide(action.move);
             }
-            if (action.score > this.action.score) {
-                this.decide(action.origin);
-                this.action = action;
+            if (action.score > ctx.action.score) {
+                ctx.turn.decide(action.origin);
+                ctx.action = action;
             }
         }
     }
 
-    private explore(score: number, position: Position, origin?: MOVE): Action[] {
+    private static explore(ctx: Context, score: number, position: Position, origin?: MOVE): Action[] {
         // @ts-ignore
         const abscissa = (position.x - position.prev.x !== 0) ? 'x' : 'y';
         const ordinate = (abscissa === 'x') ? 'y' : 'x';
@@ -96,8 +74,8 @@ class TsPlayer implements Player {
             },
         };
 
-        if (!this.isInvalid(forward.target)) {
-            this.consumeAction(forward);
+        if (!TsPlayer.isInvalid(ctx, forward.target)) {
+            TsPlayer.consumeAction(ctx, forward);
             actions.push(forward);
         }
 
@@ -113,8 +91,8 @@ class TsPlayer implements Player {
             },
         };
 
-        if (!this.isInvalid(larboard.target)) {
-            this.consumeAction(forward);
+        if (!TsPlayer.isInvalid(ctx, larboard.target)) {
+            TsPlayer.consumeAction(ctx, forward);
             actions.push(larboard);
         }
         const starboard: Action =  {
@@ -128,11 +106,36 @@ class TsPlayer implements Player {
                 prev: position,
             },
         };
-        if (!this.isInvalid(starboard.target)) {
-            this.consumeAction(forward);
+        if (!TsPlayer.isInvalid(ctx, starboard.target)) {
+            TsPlayer.consumeAction(ctx, forward);
             actions.push(starboard);
         }
 
         return actions;
+    }
+
+    private readonly depth: number;
+
+    constructor(depth?: number) {
+        this.depth = depth ? depth : DEFAULT_TS_PLAYER_DEPTH;
+    }
+
+    public act(turn: Turn): void {
+        const ctx: Context = { turn };
+
+        let children: Action[] = TsPlayer.explore(ctx, 1, ctx.turn.position, undefined);
+
+        for (let d = 0; d < this.depth; d++) {
+            const newChildren = [];
+            for (const child of children) {
+                newChildren.push(...TsPlayer.explore(ctx, child.score, child.target, child.origin));
+            }
+            children = newChildren
+                .map((a) => ({index: Math.random(), child: a}))
+                .sort((a, b) => a.index - b.index)
+                .map((a) => a.child);
+        }
+
+        return;
     }
 }

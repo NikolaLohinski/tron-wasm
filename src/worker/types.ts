@@ -1,4 +1,6 @@
-import {UUID, PLAYER_TYPE, Grid, Position, MOVE} from '@/common/types';
+import {UUID, Position} from '@/common/types';
+import {PLAYER_TYPE, MOVE} from '@/common/constants';
+import {Grid} from '@/engine/Grid';
 
 export const enum NATIVE_WORKER_MESSAGE_TYPE {
     MESSAGE = 'message',
@@ -32,16 +34,18 @@ export interface WErrorMessage extends WBaseMessage {
 
 export interface WRequestMessage extends WBaseMessage {
     type: MESSAGE_TYPE.REQUEST;
-    content: {
-        position: Position,
-        grid: Grid,
-    };
+    position: Position;
+    grid: Grid;
+    userID: UUID;
 }
 
 export interface WResultMessage extends WBaseMessage {
     type: MESSAGE_TYPE.RESULT;
     origin: MESSAGE_TYPE.REQUEST;
-    content?: MOVE;
+    content: {
+        depth: number,
+        move: MOVE,
+    };
 }
 
 export interface WIdleMessage extends WBaseMessage {

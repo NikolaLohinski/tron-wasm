@@ -7,14 +7,17 @@ import {
     WResultMessage,
     WIdleMessage,
 } from '@/worker/types';
-import {Player, MOVE, Turn} from '@/common/types';
+import {Turn} from '@/common/types';
 
 import NewPlayer from '@/engine/PlayerFactory';
+import {IA} from '@/common/interfaces';
+import {MOVE} from '@/common/constants';
+import {Grid} from '@/engine/Grid';
 
 export default class BotWorker {
 
     private ctx: IWorkerContext;
-    private player?: Player;
+    private player?: IA;
 
     constructor(ctx: IWorkerContext) {
         this.ctx = ctx;
@@ -49,7 +52,7 @@ export default class BotWorker {
                 case MESSAGE_TYPE.BOOT:
                     // tslint:disable-next-line
                     // console.log(`[WORKER: ${message.workerID}]: boot order received`, message);
-                    NewPlayer(message.playerType, message.depth).then((player: Player) => {
+                    NewPlayer(message.playerType, message.depth).then((player: IA) => {
                         this.player = player;
                         resolve({
                             workerID: message.workerID,
@@ -68,15 +71,19 @@ export default class BotWorker {
                     const self = this;
 
                     const turn: Turn = {
-                        position: message.content.position,
-                        grid: message.content.grid,
-                        decide(move: MOVE) {
+                        userID: message.userID,
+                        position: message.position,
+                        grid: Grid.parse(message.grid),
+                        decide(move: MOVE, depth: number) {
                             const result: WResultMessage = {
                                 workerID: message.workerID,
                                 correlationID: message.correlationID,
                                 origin: MESSAGE_TYPE.REQUEST,
                                 type: MESSAGE_TYPE.RESULT,
-                                content: move,
+                                content: {
+                                    depth,
+                                    move,
+                                },
                             };
                             self.ctx.postMessage(result);
                         },

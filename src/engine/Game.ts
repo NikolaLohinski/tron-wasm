@@ -1,9 +1,25 @@
-import Bot, {IBot} from '@/engine/Bot';
-import {generateUUID} from '@/common/utils';
-import {GAME_STATUS, Grid, MOVE, MoveTarget, PLAYER_TYPE, Position, UUID} from '@/common/types';
+import Bot from '@/engine/Bot';
+import {generateUUID} from '@/common/functions';
+import {MoveTarget, PlayerConstructor, PlayerPerformance, Position, UUID} from '@/common/types';
+import {Player} from '@/common/interfaces';
+import {GAME_STATUS, MOVE, PLAYER_TYPE} from '@/common/constants';
+import {Grid} from '@/engine/Grid';
 
-const DEFAULT_NUMBER_PLAYERS = 2;
+const DEFAULT_PLAYERS_CONSTRUCTORS: PlayerConstructor[] = new Array(2).fill({
+    type: PLAYER_TYPE.TS,
+    depth: 5,
+});
 const DEFAULT_TURN_TIMEOUT_MS = 100;
+
+interface Protagonist {
+    player: Player;
+    position: Position;
+    move: MOVE;
+    depth: number;
+    duration: number;
+    dead: boolean;
+    type: PLAYER_TYPE;
+}
 
 export default class Game {
 
@@ -37,55 +53,80 @@ export default class Game {
         };
     }
 
-    private readonly players: { [id: string]: IBot };
+    private readonly protagonists: { [id: string]: Protagonist };
     private readonly turnTimeoutMs: number;
     private readonly nbPlayers: number;
     private readonly grid: Grid;
-    private readonly positions: { [id: string]: Position };
-    private readonly movesBuffer: {[id: string]: MOVE };
-    private deadPlayers: UUID[];
+    private referenceTime: number;
     private state: GAME_STATUS;
 
     private currentCorrelationID: UUID = '';
 
-    constructor(sizeX: number, sizeY: number, turnTimeoutMs?: number, nbPlayers?: number) {
+    constructor(sizeX: number, sizeY: number, turnTimeoutMs?: number, playersConstructors?: PlayerConstructor[]) {
         this.state = GAME_STATUS.CLEAR;
-        this.grid = {
-            sizeX,
-            sizeY,
-            filled: {},
-        };
+        this.grid = new Grid(sizeX, sizeY);
         this.turnTimeoutMs = turnTimeoutMs ? turnTimeoutMs : DEFAULT_TURN_TIMEOUT_MS;
-        this.nbPlayers = nbPlayers ? nbPlayers : DEFAULT_NUMBER_PLAYERS;
-        this.players = {};
-        this.positions = {};
-        this.movesBuffer = {};
-        this.deadPlayers = [];
-        for (let i = 0; i < this.nbPlayers; i++) {
+        this.nbPlayers = playersConstructors ? playersConstructors.length : DEFAULT_PLAYERS_CONSTRUCTORS.length;
+        this.protagonists = {};
+        this.referenceTime = 0;
+        for (const constructor of playersConstructors || DEFAULT_PLAYERS_CONSTRUCTORS) {
             const id = generateUUID();
-            this.players[id] = new Bot(id, PLAYER_TYPE.TS, 8);
-            this.movesBuffer[id] = MOVE.FORWARD;
-            this.positions[id] = {
-                x: -1,
-                y: -1,
+            this.protagonists[id] = {
+                type: constructor.type,
+                player: new Bot(id, constructor.type, constructor.depth),
+                position: { x: -1, y: -1 },
+                move: MOVE.FORWARD,
+                depth: 0,
+                duration: 0,
+                dead: false,
             };
         }
     }
 
     public getPlayersIDs(): UUID[] {
-        return Object.keys(this.players);
+        return Object.keys(this.protagonists);
     }
 
     public isDead(playerID: UUID): boolean {
-        return this.deadPlayers.includes(playerID);
+        const protagonist = this.protagonists[playerID];
+        if (!protagonist) {
+            throw Error(`unknown player with ID: "${playerID}"`);
+        }
+        return protagonist.dead;
     }
 
     public getPosition(playerID: UUID): Position {
-        const position = this.positions[playerID];
-        if (!position) {
+        const protagonist = this.protagonists[playerID];
+        if (!protagonist) {
             throw Error(`unknown player with ID: "${playerID}"`);
         }
-        return position;
+        return protagonist.position;
+    }
+
+    public getPerformance(playerID: UUID): PlayerPerformance {
+        const protagonist = this.protagonists[playerID];
+        if (!protagonist) {
+            throw Error(`unknown player with ID: "${playerID}"`);
+        }
+        return {
+            depth: protagonist.depth,
+            duration: protagonist.duration,
+        };
+    }
+
+    public reset(): GAME_STATUS {
+        Object.entries(this.protagonists).forEach(([userID, p]) => {
+            p.player.destroy();
+            this.protagonists[userID].position = { x: -1, y: -1 };
+            this.protagonists[userID].move = MOVE.FORWARD;
+            this.protagonists[userID].duration = 0;
+            this.protagonists[userID].dead = false;
+        });
+        this.grid.reset();
+        this.currentCorrelationID = '';
+        this.state = GAME_STATUS.CLEAR;
+
+        return this.state;
     }
 
     public start(): Promise<GAME_STATUS | Error> {
@@ -100,10 +141,11 @@ export default class Game {
 
             const correlationID = generateUUID();
 
-            this.deadPlayers = [];
             this.generateRandomStartPositions();
 
-            const playersBoots = Object.values(this.players).map((player: IBot) => player.boot(correlationID));
+            const playersBoots = Object.values(this.protagonists).map((protagonist) => {
+                return protagonist.player.boot(correlationID);
+            });
 
             Promise.all(playersBoots).then(() => {
                 const state = GAME_STATUS.RUNNING;
@@ -124,23 +166,36 @@ export default class Game {
                 throw Error('can not tick a game that is not running');
             }
             const correlationID = generateUUID();
+
             this.currentCorrelationID = correlationID;
-            Object.entries(this.players).filter(([id, _]: [UUID, IBot]) => {
-                return !this.deadPlayers.includes(id);
-            }).forEach(([id, player]: [UUID, IBot]) => {
+            this.referenceTime = new Date().getTime();
+
+            Object.entries(this.protagonists).filter(([, p]: [UUID, Protagonist]) => {
+                return !p.dead;
+            }).forEach(([id, protagonist]: [UUID, Protagonist]) => {
                 const userID = id;
 
-                this.movesBuffer[userID] = MOVE.FORWARD;
-                const position = this.positions[userID];
+                protagonist.move = MOVE.FORWARD;
+                protagonist.depth = 0;
+                protagonist.duration = 0;
 
-                player.requestAction(correlationID, position, this.grid, (corr: UUID, move: MOVE) => {
-                    if (corr === correlationID) {
-                        this.movesBuffer[userID] = move;
-                    } else {
-                        // tslint:disable-next-line
-                        console.error(`received correlation ID (${corr}) differs from current one (${correlationID})`);
-                    }
-                });
+                const position = protagonist.position;
+
+                protagonist.player.requestAction(
+                    correlationID,
+                    position,
+                    this.grid,
+                    (corr: UUID, content: {move: MOVE, depth: number}) => {
+                        if (corr === correlationID) {
+                            protagonist.move = content.move;
+                            protagonist.depth = content.depth;
+                            protagonist.duration = new Date().getTime() - this.referenceTime;
+                        } else {
+                            // tslint:disable-next-line
+                            console.error(`received correlation ID (${corr}) differs from current one (${correlationID})`);
+                        }
+                    },
+                );
             });
             setTimeout(() => {
                 const endTurnCorrelationID = generateUUID();
@@ -149,14 +204,14 @@ export default class Game {
                 this.resolveTurn();
 
                 if (this.state !== GAME_STATUS.RUNNING) {
-                    Object.values(this.players).forEach((player) => player.destroy());
+                    Object.values(this.protagonists).forEach((p) => p.player.destroy());
                     resolve(this.state);
                 } else {
-                    const idlePromises: Array<Promise<void>> = Object.values(this.players).map((player: IBot) => {
-                        if (player.isIdle()) {
+                    const idlePromises = Object.values(this.protagonists).map((p: Protagonist) => {
+                        if (p.player.isIdle()) {
                              return new Promise((r) => r());
                         }
-                        return player.boot(endTurnCorrelationID);
+                        return p.player.boot(endTurnCorrelationID);
                     });
                     Promise.all(idlePromises).then(() => resolve(this.state));
                 }
@@ -165,13 +220,13 @@ export default class Game {
     }
 
     private generateRandomStartPositions(): void {
-        Object.keys(this.players).forEach((id) => {
+        Object.keys(this.protagonists).forEach((userID) => {
             let x: number;
             let y: number;
             do {
                 x = 1 + Math.floor(Math.random() * (this.grid.sizeX - 2));
                 y = 1 + Math.floor(Math.random() * (this.grid.sizeY - 2));
-            } while (this.isGridFilled({ x, y }));
+            } while (!!this.grid.getCell({ x, y }));
 
             const possiblePreviousPositions: Position[] = [
                 { x: x - 1, y },
@@ -179,80 +234,74 @@ export default class Game {
                 { x , y: y - 1 },
                 { x , y: y + 1 },
             ];
-            const prev = possiblePreviousPositions[Math.floor(possiblePreviousPositions.length * Math.random())];
-
-            this.positions[id] = {
+            const position = {
                 x,
                 y,
-                prev,
+                prev: possiblePreviousPositions[Math.floor(possiblePreviousPositions.length * Math.random())],
             };
-            this.fillGrid(id, this.positions[id]);
+            this.protagonists[userID].position = position;
+            this.grid.setCell(userID, position);
         });
     }
 
     private resolveTurn() {
         this.resolvePlayersPositions();
         this.resolveDeadPlayers();
-        this.state = (this.nbPlayers - this.deadPlayers.length < 2) ? GAME_STATUS.FINISHED : GAME_STATUS.RUNNING;
+        if (this.nbPlayers - Object.values(this.protagonists).filter((p) => p.dead).length < 2) {
+            this.state = GAME_STATUS.FINISHED;
+        } else {
+            this.state = GAME_STATUS.RUNNING;
+        }
     }
 
     private resolvePlayersPositions(): void {
-        Object.entries(this.movesBuffer).filter(([id]: [UUID, MOVE]) => {
-            return !this.deadPlayers.includes(id);
-        }).forEach(([userID, move]: [UUID, MOVE]) => {
-            const position = this.positions[userID];
+        Object.entries(this.protagonists)
+            .filter(([, p]: [UUID, Protagonist]) => !p.dead)
+            .forEach(([userID, p]: [UUID, Protagonist]) => {
+            const position = p.position;
 
             if (position.prev) {
                 delete(position.prev.prev);
             }
-            const newPosition = Game.positionMoveTargets(position)[move];
+
+            const newPosition = Game.positionMoveTargets(position)[p.move];
 
             newPosition.prev = position;
             newPosition.targets = Game.positionMoveTargets(newPosition);
 
-            this.positions[userID] = newPosition;
+            p.position = newPosition;
 
-            this.fillGrid(userID, newPosition);
+            this.grid.setCell(userID, newPosition);
         });
         return;
     }
 
     private resolveDeadPlayers(): void {
-        this.deadPlayers = Object.entries(this.positions).filter(([id, position]: [UUID, Position]) => {
-            if (position.x < 0
-                || position.x >= this.grid.sizeX
-                || position.y < 0
-                || position.y >= this.grid.sizeY
+        Object.entries(this.protagonists).forEach(([id, p]: [UUID, Protagonist]) => {
+            if (p.position.x < 0
+                || p.position.x >= this.grid.sizeX
+                || p.position.y < 0
+                || p.position.y >= this.grid.sizeY
             ) {
-                return true;
+                p.dead = true;
+                return;
             }
-            const conflictIDs = this.getConflictIds(position);
+            const conflictIDs = this.getConflictIds(p.position);
             if (conflictIDs.length === 0) {
-                return false;
+                return;
             }
             if (conflictIDs.length > 1 || conflictIDs[0] !== id) {
-                return true;
+                p.dead = true;
+                return;
             }
-        }).map(([userID]: [UUID, Position]) => userID);
+        });
         return;
     }
 
     private getConflictIds(position: Position): UUID[] {
-        if (!this.isGridFilled(position)) {
+        if (!this.grid.getCell(position)) {
             return [];
         }
-        return this.grid.filled[Game.positionKey(position)];
-    }
-
-    private isGridFilled(position: Position): boolean {
-        return this.grid.filled.hasOwnProperty(Game.positionKey(position));
-    }
-
-    private fillGrid(userID: UUID, position: Position): void {
-        const key = Game.positionKey(position);
-        if (!this.grid.filled.hasOwnProperty(key)) {
-            this.grid.filled[key] = [];
-        }
-        this.grid.filled[key].push(userID);
+        return this.grid.getCell(position).map((cell) => cell.userID);
     }
 }

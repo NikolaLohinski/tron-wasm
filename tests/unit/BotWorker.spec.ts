@@ -8,14 +8,17 @@ import {
     WErrorMessage,
     WIdleMessage,
 } from '@/worker/types';
-import {UUID, PLAYER_TYPE, Player, Turn, MOVE} from '@/common/types';
+import {UUID, Turn} from '@/common/types';
 
 // Mock Bot module import
 import NewPlayer from '@/engine/PlayerFactory';
 jest.mock('@/engine/PlayerFactory', () => jest.fn());
-const mockNewPlayer = (NewPlayer as any) as jest.Mock<Promise<Player>>;
+const mockNewPlayer = (NewPlayer as any) as jest.Mock<Promise<IA>>;
 
 import BotWorker from '@/worker/BotWorker';
+import {IA} from '@/common/interfaces';
+import {PLAYER_TYPE, MOVE} from '@/common/constants';
+import {Grid} from '@/engine/Grid';
 
 describe('Bot Worker', () => {
     const mockWorkerContext = {
@@ -34,7 +37,7 @@ describe('Bot Worker', () => {
     beforeEach(() => {
 
         mockNewPlayer.mockClear();
-        mockNewPlayer.mockImplementationOnce(() => new Promise((rs) => rs(mockPlayer as Player)));
+        mockNewPlayer.mockImplementationOnce(() => new Promise((rs) => rs(mockPlayer as IA)));
 
         botWorker = new BotWorker(mockWorkerContext as IWorkerContext);
     });
@@ -86,31 +89,23 @@ describe('Bot Worker', () => {
                 type: MESSAGE_TYPE.REQUEST,
                 workerID,
                 correlationID,
-                content: {
-                    position: {
-                        x: 0,
-                        y: 0,
-                    },
-                    grid: {
-                        sizeX: 15,
-                        sizeY: 15,
-                        filled: {},
-                    },
+                position: {
+                    x: 0,
+                    y: 0,
                 },
+                grid: new Grid(15, 15),
+                userID: 'test',
             };
             botWorker.handleWEvent({ data: requestMessage } as WEvent);
 
             setTimeout(() => {
                 const expectedPlayArgs: Turn = {
+                    userID: 'test',
                     position: {
                         x: 0,
                         y: 0,
                     },
-                    grid: {
-                        sizeX: 15,
-                        sizeY: 15,
-                        filled: {},
-                    },
+                    grid: new Grid(15, 15),
                     decide: expect.any(Function),
                 };
                 expect(mockPlayer.act).toHaveBeenCalledTimes(1);
@@ -130,8 +125,7 @@ describe('Bot Worker', () => {
                 type: MESSAGE_TYPE.REQUEST,
                 workerID,
                 correlationID,
-                content: {} as any,
-            };
+            } as WRequestMessage;
             botWorker.handleWEvent({ data: requestMessage } as WEvent);
 
             setTimeout(() => {
@@ -155,26 +149,22 @@ describe('Bot Worker', () => {
             Object.values(mockWorkerContext).forEach((method) => method.mockClear());
 
             mockPlayer.act.mockImplementationOnce((turn: Turn) => {
-                turn.decide(MOVE.FORWARD);
-                turn.decide(MOVE.LARBOARD);
+                turn.decide(MOVE.FORWARD, 1);
+                turn.decide(MOVE.LARBOARD, 2);
             });
 
             const requestMessage: WRequestMessage = {
                 type: MESSAGE_TYPE.REQUEST,
-                workerID,
                 correlationID,
-                content: {
-                    position: {
-                        x: 0,
-                        y: 0,
-                    },
-                    grid: {
-                        sizeX: 15,
-                        sizeY: 15,
-                        filled: {},
-                    },
+                workerID,
+                userID: 'test',
+                position: {
+                    x: 0,
+                    y: 0,
                 },
+                grid: new Grid(15, 15),
             };
+
             botWorker.handleWEvent({ data: requestMessage } as WEvent);
 
             setTimeout(() => {
@@ -183,7 +173,10 @@ describe('Bot Worker', () => {
                     origin: MESSAGE_TYPE.REQUEST,
                     workerID,
                     correlationID,
-                    content: MOVE.FORWARD,
+                    content: {
+                        depth: 1,
+                        move: MOVE.FORWARD,
+                    },
                 };
 
                 const expectedSecondMessage: WResultMessage = {
@@ -191,7 +184,10 @@ describe('Bot Worker', () => {
                     origin: MESSAGE_TYPE.REQUEST,
                     workerID,
                     correlationID,
-                    content: MOVE.LARBOARD,
+                    content: {
+                        depth: 2,
+                        move: MOVE.LARBOARD,
+                    },
                 };
 
                 const expectedIdleMessage: WIdleMessage = {

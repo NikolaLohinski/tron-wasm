@@ -1,7 +1,7 @@
 import * as TypeMoq from 'typemoq';
 
 import {MockBotWorker} from '../mocks/glue.worker';
-import {Grid, MOVE, PLAYER_TYPE, Position, UUID} from '@/common/types';
+import {Position, UUID} from '@/common/types';
 import {
     MESSAGE_TYPE,
     NATIVE_WORKER_MESSAGE_TYPE,
@@ -14,6 +14,8 @@ import {
 } from '@/worker/types';
 
 import Bot from '@/engine/Bot';
+import {PLAYER_TYPE, MOVE} from '@/common/constants';
+import {Grid} from '@/engine/Grid';
 
 describe('Bot', () => {
     const botID: UUID = '9951ec73-3a46-4ad1-86ed-5c2cd0788112';
@@ -126,7 +128,7 @@ describe('Bot', () => {
         test('should send request message with relevant data', () => {
             const position: Position = 'this is a position' as any;
             const grid: Grid = 'this is a grid' as any;
-            const actFunction: (id: UUID, move: MOVE) => void = 'this is an act fuction' as any;
+            const actFunction: (id: UUID, content: {move: MOVE, depth: number}) => void = 'act function' as any;
 
             const mockWorker = { postMessage: jest.fn() } as any;
 
@@ -137,10 +139,9 @@ describe('Bot', () => {
                 workerID: expect.anything(),
                 correlationID,
                 type: MESSAGE_TYPE.REQUEST,
-                content: {
-                    position,
-                    grid,
-                },
+                position,
+                grid,
+                userID: botID,
             };
 
             bot.requestAction(correlationID, position, grid, actFunction);
@@ -195,7 +196,10 @@ describe('Bot', () => {
                 workerID: expect.anything(),
                 correlationID,
                 type: MESSAGE_TYPE.RESULT,
-                content: MOVE.STARBOARD,
+                content: {
+                    depth: 42,
+                    move: MOVE.STARBOARD,
+                },
                 origin: MESSAGE_TYPE.REQUEST,
             };
 
@@ -208,7 +212,7 @@ describe('Bot', () => {
 
             // tslint:disable-next-line
             expect(mockActFunction).toHaveBeenCalledTimes(1);
-            expect(mockActFunction).toHaveBeenCalledWith(correlationID, MOVE.STARBOARD);
+            expect(mockActFunction).toHaveBeenCalledWith(correlationID, { move: MOVE.STARBOARD, depth: 42 });
         });
 
         test('should throw an error on error from worker', () => {

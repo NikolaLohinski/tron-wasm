@@ -1,6 +1,8 @@
-import {MOVE, Player, PLAYER_TYPE, Position, Turn} from '@/common/types';
+import {Position, Turn, UUID} from '@/common/types';
+import {IA} from '@/common/interfaces';
+import {PLAYER_TYPE, MOVE} from '@/common/constants';
 
-export default function NewPlayer(type: PLAYER_TYPE, depth?: number): Promise<Player> {
+export default function NewPlayer(type: PLAYER_TYPE, depth?: number): Promise<IA> {
     return new Promise((resolve) => {
         switch (type) {
             case PLAYER_TYPE.TS:
@@ -14,9 +16,10 @@ export default function NewPlayer(type: PLAYER_TYPE, depth?: number): Promise<Pl
 
 interface Action {
     score: number;
-    move: MOVE;
+    depth: number;
+    move?: MOVE;
     target: Position;
-    origin: MOVE;
+    origin?: MOVE;
 }
 
 interface Context {
@@ -26,11 +29,11 @@ interface Context {
 
 const DEFAULT_TS_PLAYER_DEPTH = 5;
 
-class TsPlayer implements Player {
+class TsPlayer implements IA {
     private static isInvalid(ctx: Context, position: Position): boolean {
         if (ctx.turn.grid) {
             return (
-                ctx.turn.grid.filled.hasOwnProperty(`${position.x}-${position.y}`)
+                !!ctx.turn.grid.getCell(position)
                 || position.x >= ctx.turn.grid.sizeX
                 || position.x < 0
                 || position.y >= ctx.turn.grid.sizeY
@@ -42,35 +45,32 @@ class TsPlayer implements Player {
 
     private static consumeAction(ctx: Context, action: Action): void {
         if (ctx.turn.decide) {
-            if (!ctx.action) {
+            if (!ctx.action || action.score > ctx.action.score) {
                 ctx.action = action;
-                ctx.turn.decide(action.move);
-            }
-            if (action.score > ctx.action.score) {
-                ctx.turn.decide(action.origin);
-                ctx.action = action;
+                ctx.turn.decide(action.origin as MOVE, action.depth);
             }
         }
     }
 
-    private static explore(ctx: Context, score: number, position: Position, origin?: MOVE): Action[] {
+    private static explore(ctx: Context, action: Action): Action[] {
         // @ts-ignore
-        const abscissa = (position.x - position.prev.x !== 0) ? 'x' : 'y';
+        const abscissa = (action.target.x - action.target.prev.x !== 0) ? 'x' : 'y';
         const ordinate = (abscissa === 'x') ? 'y' : 'x';
         // @ts-ignore
-        const delta = position[abscissa] - position.prev[abscissa];
+        const delta = action.target[abscissa] - action.target.prev[abscissa];
 
         const actions = [];
 
         const forward: Action =  {
-            origin: origin ? origin : MOVE.FORWARD,
-            score: score + 1,
+            origin: action.origin ? action.origin : MOVE.FORWARD,
+            depth: action.depth + 1,
+            score: action.score + 1,
             move: MOVE.FORWARD,
             // @ts-ignore
             target: {
-                [abscissa]: position[abscissa] + delta,
-                [ordinate]: position[ordinate],
-                prev: position,
+                [abscissa]: action.target[abscissa] + delta,
+                [ordinate]: action.target[ordinate],
+                prev: action.target,
             },
         };
 
@@ -80,14 +80,15 @@ class TsPlayer implements Player {
         }
 
         const larboard: Action =  {
-            origin: origin ? origin : MOVE.LARBOARD,
-            score: score + 1,
+            origin: action.origin ? action.origin : MOVE.LARBOARD,
+            score: action.score + 1,
+            depth: action.depth + 1,
             move: MOVE.LARBOARD,
             // @ts-ignore
             target: {
-                [abscissa]: position[abscissa],
-                [ordinate]: position[ordinate] + delta,
-                prev: position,
+                [abscissa]: action.target[abscissa],
+                [ordinate]: action.target[ordinate] + delta,
+                prev: action.target,
             },
         };
 
@@ -96,14 +97,15 @@ class TsPlayer implements Player {
             actions.push(larboard);
         }
         const starboard: Action =  {
-            origin: origin ? origin : MOVE.STARBOARD,
-            score: score + 1,
+            origin: action.origin ? action.origin : MOVE.STARBOARD,
+            score: action.score + 1,
+            depth: action.depth + 1,
             move: MOVE.STARBOARD,
             // @ts-ignore
             target: {
-                [abscissa]: position[abscissa],
-                [ordinate]: position[ordinate] - delta,
-                prev: position,
+                [abscissa]: action.target[abscissa],
+                [ordinate]: action.target[ordinate] - delta,
+                prev: action.target,
             },
         };
         if (!TsPlayer.isInvalid(ctx, starboard.target)) {
@@ -111,24 +113,67 @@ class TsPlayer implements Player {
             actions.push(starboard);
         }
 
-        return actions;
+        const potentialConflicts = actions.filter((a) => TsPlayer.canFirstRingBeAConflict(ctx, a.target));
+
+        if (actions.length < 2 || potentialConflicts.length === actions.length) {
+            return actions;
+        }
+
+        return actions.filter((a) => !potentialConflicts.includes(a));
     }
 
-    private readonly depth: number;
+    private static canFirstRingBeAConflict(ctx: Context, position: Position): boolean {
+        const firstRing: Position[] = TsPlayer.getNearestNeighbors((position));
+        for (const p of firstRing) {
+            const cells = ctx.turn.grid.getCell(p);
+            if (!cells) {
+                continue;
+            }
+            const secondRing = TsPlayer.getNearestNeighbors(p).filter((n) => n !== p);
+            const potentialConflict: boolean = cells.some((cell: { userID: UUID, prev: Position}) => {
+                if (cell.userID === ctx.turn.userID) {
+                    return false;
+                }
+                return secondRing.some((secondRingPosition) => {
+                    return secondRingPosition.x === cell.prev.x && secondRingPosition.y === cell.prev.y;
+                });
+            });
+            if (potentialConflict) {
+                return true;
+            }
+        }
+        return false;
+    }
 
-    constructor(depth?: number) {
-        this.depth = depth ? depth : DEFAULT_TS_PLAYER_DEPTH;
+    private static getNearestNeighbors(position: Position): Position[] {
+        return [
+            { x: position.x - 1, y: position.y },
+            { x: position.x + 1, y: position.y },
+            { x: position.x, y: position.y - 1 },
+            { x: position.x, y: position.y + 1 },
+        ];
+    }
+
+    private readonly maxDepth: number;
+
+    constructor(maxDepth?: number) {
+        this.maxDepth = maxDepth ? maxDepth : DEFAULT_TS_PLAYER_DEPTH;
     }
 
     public act(turn: Turn): void {
         const ctx: Context = { turn };
 
-        let children: Action[] = TsPlayer.explore(ctx, 1, ctx.turn.position, undefined);
+        const root: Action = {
+            target: turn.position,
+            depth: 0,
+            score: 0,
+        };
+        let children: Action[] = [root];
 
-        for (let d = 0; d < this.depth; d++) {
+        for (let d = 0; d < this.maxDepth; d++) {
             const newChildren = [];
             for (const child of children) {
-                newChildren.push(...TsPlayer.explore(ctx, child.score, child.target, child.origin));
+                newChildren.push(...TsPlayer.explore(ctx, child));
             }
             children = newChildren
                 .map((a) => ({index: Math.random(), child: a}))

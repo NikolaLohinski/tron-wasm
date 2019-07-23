@@ -9,23 +9,19 @@ import {
     WRequestMessage,
     WResultMessage,
 } from '@/worker/types';
-import {Grid, MOVE, PLAYER_TYPE, Position, UUID} from '@/common/types';
-import {generateUUID} from '@/common/utils';
+import {Position, UUID} from '@/common/types';
+import {generateUUID} from '@/common/functions';
+import {Player} from '@/common/interfaces';
+import {PLAYER_TYPE, MOVE} from '@/common/constants';
+import {Grid} from '@/engine/Grid';
 
 export const BOOT_TIMEOUT_MS = 1000;
 
-export interface IBot {
-    boot(correlationID: UUID): Promise<void>;
-    isIdle(): boolean;
-    requestAction(corr: UUID, position: Position, grid: Grid, act: (id: UUID, move: MOVE) => void): void;
-    destroy(): void;
-}
-
-export default class Bot implements IBot {
+export default class Bot implements Player {
     private worker: IWorker;
 
     private bootResolver?: () => void;
-    private actFunction?: (correlationID: UUID, move: MOVE) => void;
+    private actFunction?: (correlationID: UUID, content: {move: MOVE, depth: number}) => void;
     private readonly id: UUID;
     private workerID: UUID = '';
     private readonly playerType: PLAYER_TYPE;
@@ -78,7 +74,9 @@ export default class Bot implements IBot {
         return this.idle;
     }
 
-    public requestAction(corr: UUID, position: Position, grid: Grid, act: (id: UUID, move: MOVE) => void): void {
+    public requestAction(
+        corr: UUID, position: Position, grid: Grid, act: (id: UUID, content: {move: MOVE, depth: number},
+        ) => void): void {
         if (!this.idle) {
             throw Error('can not request action of bot that is not idle');
         }
@@ -89,10 +87,9 @@ export default class Bot implements IBot {
             correlationID: corr,
             workerID: this.workerID,
             type: MESSAGE_TYPE.REQUEST,
-            content: {
-                position,
-                grid,
-            },
+            position,
+            grid,
+            userID: this.id,
         };
 
         this.worker.postMessage(requestMessage);

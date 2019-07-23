@@ -1,8 +1,11 @@
 import * as TypeMoq from 'typemoq';
 
-import {DecideFunc, MOVE, Player, PLAYER_TYPE, Turn} from '@/common/types';
+import {DecideFunc, Turn} from '@/common/types';
 
 import NewPlayer from '@/engine/PlayerFactory';
+import {IA} from '@/common/interfaces';
+import {PLAYER_TYPE, MOVE} from '@/common/constants';
+import {Grid} from '@/engine/Grid';
 
 describe('TsPlayer', () => {
     describe('Factory', () => {
@@ -20,8 +23,9 @@ describe('TsPlayer', () => {
         });
 
         test('should call decide function', () => {
-            return NewPlayer(PLAYER_TYPE.TS).then((tsPlayer: Player) => {
+            return NewPlayer(PLAYER_TYPE.TS).then((tsPlayer: IA) => {
                 const turn: Turn = {
+                    userID: 'test',
                     position: {
                         x: 1,
                         y: 1,
@@ -44,15 +48,14 @@ describe('TsPlayer', () => {
                             },
                         },
                     },
-                    grid: {
-                      sizeX: 15,
-                      sizeY: 15,
-                      filled: {},
-                    },
+                    grid: new Grid(15, 15),
                     decide: decideMock.object,
                 };
                 tsPlayer.act(turn);
-                decideMock.verify((m) => m(TypeMoq.It.isAny()), TypeMoq.Times.atLeastOnce());
+                decideMock.verify(
+                    (m) => m(TypeMoq.It.isAny(), TypeMoq.It.isAny()),
+                    TypeMoq.Times.atLeastOnce(),
+                );
             });
         });
     });

@@ -1,4 +1,8 @@
+import {MOVE, PLAYER_TYPE} from '@/common/constants';
+import {Grid} from '@/engine/Grid';
+
 export type UUID = string;
+export type DecideFunc = (direction: MOVE, depth: number) => void;
 
 export interface Color {
     name: string;
@@ -10,22 +14,26 @@ export interface PlayerMetadata {
     id: UUID;
     color: Color;
     alive: boolean;
+    type: PLAYER_TYPE;
+    depth: number;
 }
 
-export const enum MOVE {
-    FORWARD = 'FORWARD',
-    LARBOARD = 'LARBOARD',
-    STARBOARD = 'STARBOARD',
+export interface PlayerPerformance {
+    depth: number;
+    duration: number;
 }
 
-export const enum GAME_STATUS {
-    CLEAR = 'CLEAR',
-    RUNNING = 'RUNNING',
-    FINISHED = 'FINISHED',
+export interface GameMetadata {
+    gridX: number;
+    gridY: number;
+    autoRun: boolean;
+    playersConstructors: PlayerConstructor[];
+    turnTimeoutMs: number;
 }
 
-export const enum PLAYER_TYPE {
-    TS = 'TS',
+export interface PlayerConstructor {
+    type: PLAYER_TYPE;
+    depth?: number;
 }
 
 export interface Position {
@@ -41,20 +49,10 @@ export interface MoveTarget {
     [MOVE.LARBOARD]: Position;
 }
 
-export interface Grid {
-    sizeX: number;
-    sizeY: number;
-    filled: {[xy: string]: UUID[]};
-}
-
-export type DecideFunc = (direction: MOVE) => void;
-
 export interface Turn {
+    userID: UUID;
     position: Position;
     grid: Grid;
     decide: DecideFunc;
 }
 
-export interface Player {
-    act(turn: Turn): void;
-}

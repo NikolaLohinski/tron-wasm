@@ -1,13 +1,12 @@
 import * as TypeMoq from 'typemoq';
-
 // Mock Bot module import
 import Bot from '@/engine/Bot';
+import Game from '@/engine/Game';
+import {Player} from '@/common/interfaces';
+import {GAME_STATUS, MOVE, PLAYER_TYPE} from '@/common/constants';
+
 jest.mock('@/engine/Bot', () => jest.fn());
 const mockBot = (Bot as any) as jest.Mock<typeof Bot>;
-
-import {IBot} from '@/engine/Bot';
-import Game from '@/engine/Game';
-import {GAME_STATUS, MOVE} from '@/common/types';
 
 describe('Game', () => {
     beforeEach(() => {
@@ -16,7 +15,10 @@ describe('Game', () => {
 
     describe('constructor', () => {
         test('should initialize and create a defined number of players', () => {
-            const game = new Game(15, 15, 100, 2);
+            const game = new Game(15, 15, 100, [
+                { type: PLAYER_TYPE.TS, depth: 42 },
+                { type: PLAYER_TYPE.TS, depth: 52 },
+            ]);
             expect(game).toBeDefined();
             expect(mockBot).toHaveBeenCalledTimes(2);
         });
@@ -24,14 +26,23 @@ describe('Game', () => {
 
     describe('getPlayersIDs', () => {
         test('should return a number of ids matching the number of players', () => {
-            const game = new Game(15, 15, 100, 3);
+            const game = new Game(15, 15, 100, [
+                { type: PLAYER_TYPE.TS, depth: 1 },
+                { type: PLAYER_TYPE.TS, depth: 2 },
+                { type: PLAYER_TYPE.TS, depth: 3 },
+            ]);
             expect(game.getPlayersIDs()).toHaveLength(3);
         });
     });
 
     describe('getPosition', () => {
+        const game = new Game(15, 15, 100, [
+            { type: PLAYER_TYPE.TS, depth: 1 },
+            { type: PLAYER_TYPE.TS, depth: 2 },
+            { type: PLAYER_TYPE.TS, depth: 3 },
+        ]);
+
         test('should return uninitialized positions for all players', () => {
-            const game = new Game(15, 15, 100, 3);
             const ids = game.getPlayersIDs();
             for (const id of ids) {
                 expect(game.getPosition(id)).toEqual({ x: -1, y: -1 });
@@ -39,7 +50,6 @@ describe('Game', () => {
         });
 
         test('should throw an error on unknown player id', () => {
-            const game = new Game(15, 15, 100, 3);
             expect( () => game.getPosition('i do not exist')).toThrow('unknown player with ID: "i do not exist"');
         });
     });
@@ -47,8 +57,8 @@ describe('Game', () => {
     describe('start', () => {
         let game: Game;
 
-        const mockBot1: TypeMoq.IMock<IBot> = TypeMoq.Mock.ofType<IBot>();
-        const mockBot2: TypeMoq.IMock<IBot> = TypeMoq.Mock.ofType<IBot>();
+        const mockBot1: TypeMoq.IMock<Player> = TypeMoq.Mock.ofType<Player>();
+        const mockBot2: TypeMoq.IMock<Player> = TypeMoq.Mock.ofType<Player>();
 
         beforeEach(() => {
             mockBot1.reset();
@@ -88,15 +98,15 @@ describe('Game', () => {
     describe('tick', () => {
         let game: Game;
 
-        const mockBot1: TypeMoq.IMock<IBot> = TypeMoq.Mock.ofType<IBot>();
-        const mockBot2: TypeMoq.IMock<IBot> = TypeMoq.Mock.ofType<IBot>();
+        const mockBot1: TypeMoq.IMock<Player> = TypeMoq.Mock.ofType<Player>();
+        const mockBot2: TypeMoq.IMock<Player> = TypeMoq.Mock.ofType<Player>();
 
         beforeEach(() => {
             // Mock new Bot instantiation
             mockBot.mockImplementationOnce(() => (mockBot1.object as any));
             mockBot.mockImplementationOnce(() => (mockBot2.object as any));
 
-            game = new Game(15, 15, 200, 2);
+            game = new Game(15, 15, 200);
         });
 
         test('should request action from each player', async () => {

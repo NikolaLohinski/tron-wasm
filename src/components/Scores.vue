@@ -9,7 +9,7 @@
             <td class="victories">Score</td>
         </tr>
         </thead>
-        <transition-group name="flip-list" tag="tbody">
+        <transition-group name="flip-list" tag="tbody" mode="out-in">
             <tr class="score" v-for="player in metadata" :key="player.id" :dead="!player.alive">
                 <td class="name">{{ player.name }}</td>
                 <td class="color">
@@ -80,12 +80,13 @@ export default class Scores extends Vue {
 <style lang="scss" scoped>
     table#scores {
         tr.score {
+            transition: all .2s;
             td, th {
                 padding: 5px;
-
                 &.name {
                     text-align: left;
                     white-space: nowrap;
+                    min-width: 200px;
                 }
 
                 &.color {
@@ -93,9 +94,13 @@ export default class Scores extends Vue {
                         width: 10px;
                         height: 10px;
                     }
+                    min-width: 20px;
                 }
-
+                &.depth {
+                    width: 60px;
+                }
                 &.duration {
+                    width: 60px;
                     white-space: pre-wrap;
                 }
             }
@@ -106,8 +111,11 @@ export default class Scores extends Vue {
             }
         }
     }
-
-    .flip-list-move {
-        transition: transform .5s;
+    .flip-list-leave-to,
+    .flip-list-enter{
+        transform: translateX(100vw);
+    }
+    .flip-list-leave-active {
+        position: absolute;
     }
 </style>

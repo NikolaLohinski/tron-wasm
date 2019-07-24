@@ -44,7 +44,7 @@
             Object.entries(newPositions).forEach(([userID, position]: [UUID, Position]) => {
                 const metadata = this.metadata(userID);
                 const cell = Grid.getCell(position);
-                if (cell) {
+                if (cell && metadata) {
                     cell.style.background = metadata.color.code;
                     if (!metadata.alive) {
                         cell.classList.add('dead');

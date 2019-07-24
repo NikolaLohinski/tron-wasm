@@ -2,47 +2,53 @@
     <section id="app">
         <transition name="fade">
             <div class="loader" v-if="loading">
-                <img :src="require('@/assets/tron.png')" class="temporary-logo"/>
+                <img :src="require('@/assets/tron.png')" class="logo"/>
             </div>
             <article class="body" v-else>
-                <Grid class="grid"/>
-                <Scores class="scores"/>
+                <div class="playground">
+                    <Grid class="grid"/>
+                    <Scores class="scores"/>
+                </div>
+                <Actions class="actions"/>
             </article>
         </transition>
     </section>
 </template>
 
 <script lang="ts">
-    import {Component, Vue, Watch} from 'vue-property-decorator';
+import {Component, Vue, Watch} from 'vue-property-decorator';
 
-    import Grid from '@/components/Grid.vue';
-    import Scores from '@/components/Scores.vue';
-    import {GAME_STATUS} from '@/common/constants';
+import Grid from '@/components/Grid.vue';
+import Scores from '@/components/Scores.vue';
+import Actions from '@/components/Actions.vue';
 
-    @Component({
-        components: {
-            Grid,
-            Scores,
-        },
-    })
-    export default class App extends Vue {
-        private loading: boolean = true;
+import {GAME_STATUS} from '@/common/constants';
 
-        get status(): GAME_STATUS {
-            return this.$store.getters.status;
-        }
+@Component({
+    components: {
+        Grid,
+        Scores,
+        Actions,
+    },
+})
+export default class App extends Vue {
+    private loading: boolean = true;
 
-        @Watch('status', {immediate: true})
-        private onPersonChanged1(newStatus: GAME_STATUS) {
-            if (newStatus !== GAME_STATUS.CLEAR) {
-                this.loading = false;
-            }
-        }
+    get status(): GAME_STATUS {
+        return this.$store.getters.status;
+    }
 
-        private mounted() {
-            this.$store.dispatch('start');
+    @Watch('status', {immediate: true})
+    private onPersonChanged1(newStatus: GAME_STATUS) {
+        if (newStatus !== GAME_STATUS.CLEAR) {
+            this.loading = false;
         }
     }
+
+    private mounted() {
+        this.$store.dispatch('start', true);
+    }
+}
 </script>
 
 <style lang="scss" scoped>
@@ -55,7 +61,6 @@
         background-color: #000;
         color: #ddd;
         font-family: Verdana, Arial, sans-serif;
-
         div.loader {
             position: absolute;
             top: 50%;
@@ -63,7 +68,7 @@
             transform: translate(-50%, -50%);
             transition: opacity .2s;
 
-            img.temporary-logodefault {
+            img.logo {
                 position: absolute;
                 width: 75px;
                 opacity: 0.8;
@@ -87,15 +92,20 @@
             position: absolute;
             top: 50%;
             left: 0;
-            white-space: nowrap;
-            transform: translateY(-50%);
             width: 100%;
+            transform: translateY(-50%);
             text-align: center;
-
-            .grid, .scores {
-                vertical-align: middle;
-                display: inline-block;
-                margin: 0 10px;
+            .actions {
+                margin: 45px auto;
+            }
+            .playground {
+                margin: 15px auto;
+                white-space: nowrap;
+                .grid, .scores {
+                    vertical-align: middle;
+                    display: inline-block;
+                    margin: 0 10px;
+                }
             }
         }
     }

@@ -26,9 +26,13 @@ export interface PlayerPerformance {
 export interface GameMetadata {
     gridX: number;
     gridY: number;
-    autoRun: boolean;
     playersConstructors: PlayerConstructor[];
     turnTimeoutMs: number;
+}
+
+export interface Simulation {
+    paused: boolean;
+    autoRestartMs: number;
 }
 
 export interface PlayerConstructor {

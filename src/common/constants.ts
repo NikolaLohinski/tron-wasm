@@ -7,7 +7,6 @@ export const enum MOVE {
 }
 
 export const enum GAME_STATUS {
-    UNSET = 'UNSET',
     CLEAR = 'CLEAR',
     RUNNING = 'RUNNING',
     FINISHED = 'FINISHED',

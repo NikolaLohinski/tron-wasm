@@ -22,7 +22,7 @@ interface Protagonist {
 }
 
 export default class Game {
-
+    public static INIT_GAME_STATUS = GAME_STATUS.CLEAR;
     private static positionKey(position: Position): string {
         return `${position.x}-${position.y}`;
     }
@@ -63,7 +63,7 @@ export default class Game {
     private currentCorrelationID: UUID = '';
 
     constructor(sizeX: number, sizeY: number, turnTimeoutMs?: number, playersConstructors?: PlayerConstructor[]) {
-        this.state = GAME_STATUS.CLEAR;
+        this.state = Game.INIT_GAME_STATUS;
         this.grid = new Grid(sizeX, sizeY);
         this.turnTimeoutMs = turnTimeoutMs ? turnTimeoutMs : DEFAULT_TURN_TIMEOUT_MS;
         this.nbPlayers = playersConstructors ? playersConstructors.length : DEFAULT_PLAYERS_CONSTRUCTORS.length;

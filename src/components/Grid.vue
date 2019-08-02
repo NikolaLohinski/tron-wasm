@@ -1,7 +1,7 @@
 <template>
     <table id="grid">
-        <tr v-for="y in (grid.sizeX + 2)" :key="`row_${y - 2}`" class="row">
-            <td v-for="x in (grid.sizeY + 2)"
+        <tr v-for="y in (grid.sizeY + 2)" :key="`row_${y - 2}`" class="row">
+            <td v-for="x in (grid.sizeX + 2)"
                 :key="`col_${x - 2}`"
                 :id="`cell_${x - 2}_${y - 2}`"
                 :class="x === 1 || x === grid.sizeX + 2 || y === 1 || y === grid.sizeY + 2 ? 'wall' : 'cell'">
@@ -89,9 +89,21 @@
         }
 
         td.wall {
-            background: #aaaaaa;
+            background: #3f4548;
             height: 5px;
             width: 5px;
+            &:first-child {
+                border-left: 1px solid #666;
+            }
+            &:last-child {
+                border-right: 1px solid #666;
+            }
+        }
+        tr:first-child > td.wall {
+                border-top: 1px solid #666;
+        }
+        tr:last-child > td.wall {
+            border-bottom: 1px solid #666;
         }
 
         td.dead {

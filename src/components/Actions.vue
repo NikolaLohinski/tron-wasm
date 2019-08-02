@@ -43,28 +43,29 @@
 </script>
 <style lang="scss" scoped>
     $button-bg-color: #3f4548;
+    $button-border-color: lighten($button-bg-color,10%);
+    $button-bg-hover-color: darken($button-bg-color,5%);
+    $button-bg-shadow-active-color: darken($button-bg-color,10%);
     nav#actions {
         .button{
             display: inline-block;
-            padding: 20px 0 13px 0;
-            margin-right: 5px;
+            padding: 20px 0 15px 0;
+            margin-right: 15px;
             background: $button-bg-color;
             min-width: 60px;
-            border: none;
             outline: none;
             color: #ddd;
             font-size: 20px;
-            border-radius: 3px;
-            box-shadow: 0 5px 0 darken($button-bg-color, 0%);
+            border-radius: 4px;
+            box-shadow: 0 4px 0 $button-bg-color;
+            border-bottom: 1px solid $button-border-color;
+            transition: all .1s ease-in;
             &:hover{
-                background: darken($button-bg-color,5%);
-                box-shadow: 0 4px 1px darken($button-bg-color,5%);
-                transition: all 0.1s ease-in;
+                background: $button-bg-hover-color;
                 color: #aaa;
             }
             &:active{
                 transform:translateY(4px);
-                border-bottom-width: 2px;
                 box-shadow: none;
             }
         }

@@ -4,14 +4,13 @@ import Game from '@/engine/Game';
 import {
   Color,
   GameMetadata,
-  PlayerConstructor,
   PlayerMetadata,
   PlayerPerformance,
   Position,
   Simulation,
   UUID,
 } from '@/common/types';
-import {randomColor} from '@/common/functions';
+import {randomColor, randomName} from '@/common/functions';
 import {GAME_STATUS, PLAYER_TYPE} from '@/common/constants';
 
 Vue.use(Vuex);
@@ -49,12 +48,12 @@ export default new Vuex.Store({
   state: {
     gameMetadata: {
       gridX: 20,
-      gridY: 20,
-      turnTimeoutMs: 50,
+      gridY: 25,
+      turnTimeoutMs: 100,
       playersConstructors: [
-        {type: PLAYER_TYPE.TS, depth: 3},
-        {type: PLAYER_TYPE.TS, depth: 3},
+        {type: PLAYER_TYPE.TS, depth: 5},
         {type: PLAYER_TYPE.TS, depth: 8},
+        {type: PLAYER_TYPE.TS, depth: 10},
       ],
     },
     simulation: {
@@ -111,15 +110,19 @@ export default new Vuex.Store({
       state.ids = ids;
       state.metadata = ids.reduce((allMetadata: { [id: string]: PlayerMetadata }, id: UUID, index: number) => {
         let color: Color;
+        let name: string;
         do {
           color = randomColor();
-        } while (Object.values(allMetadata).some((c) => c.name === color.name));
+          name = randomName();
+        } while (Object.values(allMetadata).some((p): boolean => {
+          return p.name === name || p.color === color;
+        }));
         return {
           ...allMetadata,
           [id]: {
             id,
             color,
-            name: `Player ${color.name}`,
+            name,
             alive: true,
             depth: state.gameMetadata.playersConstructors[index].depth,
             type: state.gameMetadata.playersConstructors[index].type,

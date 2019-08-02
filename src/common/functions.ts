@@ -1,5 +1,5 @@
 import {Color, UUID} from '@/common/types';
-import {COLORS} from '@/common/constants';
+import {COLORS, NAMES} from '@/common/constants';
 
 export function generateUUID(): UUID {
     let d = new Date().getTime();
@@ -16,4 +16,8 @@ export function generateUUID(): UUID {
 
 export function randomColor(): Color {
     return COLORS[Math.floor(Math.random() * COLORS.length)];
+}
+
+export function randomName(): string {
+    return NAMES[Math.floor(Math.random() * NAMES.length)];
 }

@@ -9,7 +9,7 @@ import {
     WRequestMessage,
     WResultMessage,
 } from '@/worker/types';
-import {Position, UUID} from '@/common/types';
+import {ActFunc, Position, UUID} from '@/common/types';
 import {generateUUID} from '@/common/functions';
 import {Player} from '@/common/interfaces';
 import {PLAYER_TYPE, MOVE} from '@/common/constants';
@@ -74,9 +74,7 @@ export default class Bot implements Player {
         return this.idle;
     }
 
-    public requestAction(
-        corr: UUID, position: Position, grid: Grid, act: (id: UUID, content: {move: MOVE, depth: number},
-        ) => void): void {
+    public requestAction(corr: UUID, position: Position, grid: Grid, act: ActFunc): void {
         if (!this.idle) {
             throw Error('can not request action of bot that is not idle');
         }
@@ -84,12 +82,12 @@ export default class Bot implements Player {
         this.actFunction = act;
 
         const requestMessage: WRequestMessage = {
-            correlationID: corr,
-            workerID: this.workerID,
             type: MESSAGE_TYPE.REQUEST,
+            workerID: this.workerID,
+            correlationID: corr,
+            userID: this.id,
             position,
             grid,
-            userID: this.id,
         };
 
         this.worker.postMessage(requestMessage);

@@ -9,7 +9,6 @@
         </tr>
     </table>
 </template>
-
 <script lang="ts">
     import {Component, Vue, Watch} from 'vue-property-decorator';
     import {PlayerMetadata, Position, UUID} from '@/common/types';
@@ -67,7 +66,6 @@
         }
     }
 </script>
-
 <style lang="scss" scoped>
     table#grid {
         margin: 0 auto;

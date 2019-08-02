@@ -1,12 +1,12 @@
-import {Position, Turn, UUID} from '@/common/types';
-import {IA} from '@/common/interfaces';
+import {Position, RegisterMoveFunc, Turn, UUID} from '@/common/types';
+import {AI, BaseAI} from '@/common/interfaces';
 import {PLAYER_TYPE, MOVE} from '@/common/constants';
 
-export default function NewPlayer(type: PLAYER_TYPE, depth?: number): Promise<IA> {
+export default function NewPlayer(type: PLAYER_TYPE, register: RegisterMoveFunc, depth?: number): Promise<AI> {
     return new Promise((resolve) => {
         switch (type) {
             case PLAYER_TYPE.TS:
-                    resolve(new TsPlayer(depth));
+                    resolve(new TsPlayer(register, depth));
                     break;
             default:
                 throw TypeError(`unknown player of type "${type}"`);
@@ -29,7 +29,7 @@ interface Context {
 
 const DEFAULT_TS_PLAYER_DEPTH = 5;
 
-class TsPlayer implements IA {
+class TsPlayer extends BaseAI {
     private static isInvalid(ctx: Context, position: Position): boolean {
         if (ctx.turn.grid) {
             return (
@@ -41,85 +41,6 @@ class TsPlayer implements IA {
             );
         }
         return false;
-    }
-
-    private static consumeAction(ctx: Context, action: Action): void {
-        if (ctx.turn.decide) {
-            if (!ctx.action || action.score > ctx.action.score) {
-                ctx.action = action;
-                ctx.turn.decide(action.origin as MOVE, action.depth);
-            }
-        }
-    }
-
-    private static explore(ctx: Context, action: Action): Action[] {
-        // @ts-ignore
-        const abscissa = (action.target.x - action.target.prev.x !== 0) ? 'x' : 'y';
-        const ordinate = (abscissa === 'x') ? 'y' : 'x';
-        // @ts-ignore
-        const delta = action.target[abscissa] - action.target.prev[abscissa];
-
-        const actions = [];
-
-        const forward: Action =  {
-            origin: action.origin ? action.origin : MOVE.FORWARD,
-            depth: action.depth + 1,
-            score: action.score + 1,
-            move: MOVE.FORWARD,
-            // @ts-ignore
-            target: {
-                [abscissa]: action.target[abscissa] + delta,
-                [ordinate]: action.target[ordinate],
-                prev: action.target,
-            },
-        };
-
-        if (!TsPlayer.isInvalid(ctx, forward.target)) {
-            TsPlayer.consumeAction(ctx, forward);
-            actions.push(forward);
-        }
-
-        const larboard: Action =  {
-            origin: action.origin ? action.origin : MOVE.LARBOARD,
-            score: action.score + 1,
-            depth: action.depth + 1,
-            move: MOVE.LARBOARD,
-            // @ts-ignore
-            target: {
-                [abscissa]: action.target[abscissa],
-                [ordinate]: action.target[ordinate] + delta,
-                prev: action.target,
-            },
-        };
-
-        if (!TsPlayer.isInvalid(ctx, larboard.target)) {
-            TsPlayer.consumeAction(ctx, forward);
-            actions.push(larboard);
-        }
-        const starboard: Action =  {
-            origin: action.origin ? action.origin : MOVE.STARBOARD,
-            score: action.score + 1,
-            depth: action.depth + 1,
-            move: MOVE.STARBOARD,
-            // @ts-ignore
-            target: {
-                [abscissa]: action.target[abscissa],
-                [ordinate]: action.target[ordinate] - delta,
-                prev: action.target,
-            },
-        };
-        if (!TsPlayer.isInvalid(ctx, starboard.target)) {
-            TsPlayer.consumeAction(ctx, forward);
-            actions.push(starboard);
-        }
-
-        const potentialConflicts = actions.filter((a) => TsPlayer.canFirstRingBeAConflict(ctx, a.target));
-
-        if (actions.length < 2 || potentialConflicts.length === actions.length) {
-            return actions;
-        }
-
-        return actions.filter((a) => !potentialConflicts.includes(a));
     }
 
     private static canFirstRingBeAConflict(ctx: Context, position: Position): boolean {
@@ -156,11 +77,12 @@ class TsPlayer implements IA {
 
     private readonly maxDepth: number;
 
-    constructor(maxDepth?: number) {
+    constructor(register: RegisterMoveFunc, maxDepth?: number) {
+        super(register);
         this.maxDepth = maxDepth ? maxDepth : DEFAULT_TS_PLAYER_DEPTH;
     }
 
-    public act(turn: Turn): void {
+    public play(turn: Turn): void {
         const ctx: Context = { turn };
 
         const root: Action = {
@@ -173,7 +95,7 @@ class TsPlayer implements IA {
         for (let d = 0; d < this.maxDepth; d++) {
             const newChildren = [];
             for (const child of children) {
-                newChildren.push(...TsPlayer.explore(ctx, child));
+                newChildren.push(...this.explore(ctx, child));
             }
             children = newChildren
                 .map((a) => ({index: Math.random(), child: a}))
@@ -182,5 +104,81 @@ class TsPlayer implements IA {
         }
 
         return;
+    }
+    private explore(ctx: Context, action: Action): Action[] {
+        // @ts-ignore
+        const abscissa = (action.target.x - action.target.prev.x !== 0) ? 'x' : 'y';
+        const ordinate = (abscissa === 'x') ? 'y' : 'x';
+        // @ts-ignore
+        const delta = action.target[abscissa] - action.target.prev[abscissa];
+
+        const actions = [];
+
+        const forward: Action =  {
+            origin: action.origin ? action.origin : MOVE.FORWARD,
+            depth: action.depth + 1,
+            score: action.score + 1,
+            move: MOVE.FORWARD,
+            // @ts-ignore
+            target: {
+                [abscissa]: action.target[abscissa] + delta,
+                [ordinate]: action.target[ordinate],
+                prev: action.target,
+            },
+        };
+
+        if (!TsPlayer.isInvalid(ctx, forward.target)) {
+            this.consumeAction(ctx, forward);
+            actions.push(forward);
+        }
+
+        const larboard: Action =  {
+            origin: action.origin ? action.origin : MOVE.LARBOARD,
+            score: action.score + 1,
+            depth: action.depth + 1,
+            move: MOVE.LARBOARD,
+            // @ts-ignore
+            target: {
+                [abscissa]: action.target[abscissa],
+                [ordinate]: action.target[ordinate] + delta,
+                prev: action.target,
+            },
+        };
+
+        if (!TsPlayer.isInvalid(ctx, larboard.target)) {
+            this.consumeAction(ctx, forward);
+            actions.push(larboard);
+        }
+        const starboard: Action =  {
+            origin: action.origin ? action.origin : MOVE.STARBOARD,
+            score: action.score + 1,
+            depth: action.depth + 1,
+            move: MOVE.STARBOARD,
+            // @ts-ignore
+            target: {
+                [abscissa]: action.target[abscissa],
+                [ordinate]: action.target[ordinate] - delta,
+                prev: action.target,
+            },
+        };
+        if (!TsPlayer.isInvalid(ctx, starboard.target)) {
+            this.consumeAction(ctx, forward);
+            actions.push(starboard);
+        }
+
+        const potentialConflicts = actions.filter((a) => TsPlayer.canFirstRingBeAConflict(ctx, a.target));
+
+        if (actions.length < 2 || potentialConflicts.length === actions.length) {
+            return actions;
+        }
+
+        return actions.filter((a) => !potentialConflicts.includes(a));
+    }
+
+    private consumeAction(ctx: Context, action: Action): void {
+        if (!ctx.action || action.score > ctx.action.score) {
+            ctx.action = action;
+            this.register(ctx.turn.correlationID, action.origin as MOVE, action.depth);
+        }
     }
 }

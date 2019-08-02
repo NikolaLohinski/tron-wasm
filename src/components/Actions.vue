@@ -1,4 +1,3 @@
-import {GAME_STATUS} from "@/common/constants";
 <template>
     <nav id="actions">
         <div class="button" @click="restart"  v-if="paused && finished">
@@ -15,35 +14,33 @@ import {GAME_STATUS} from "@/common/constants";
         </div>
     </nav>
 </template>
-
 <script lang="ts">
     import {Component, Vue} from 'vue-property-decorator';
     import {GAME_STATUS} from '@/common/constants';
 
     @Component
-export default class Actions extends Vue {
-    get paused(): boolean {
-        return this.$store.getters.paused;
-    }
+    export default class Actions extends Vue {
+        get paused(): boolean {
+            return this.$store.getters.paused;
+        }
 
-    get finished(): boolean {
-        return this.$store.getters.status === GAME_STATUS.FINISHED;
-    }
+        get finished(): boolean {
+            return this.$store.getters.status === GAME_STATUS.FINISHED;
+        }
 
-    private reset(): Promise<void> {
-        return this.pause(true).then(() => this.$store.dispatch('start', true));
-    }
+        private reset(): Promise<void> {
+            return this.pause(true).then(() => this.$store.dispatch('start', true));
+        }
 
-    private restart(): Promise<void> {
-        return this.$store.dispatch('start').then(() => this.pause(false));
-    }
+        private restart(): Promise<void> {
+            return this.$store.dispatch('start').then(() => this.pause(false));
+        }
 
-    private pause(value: boolean): Promise<void> {
-        return this.$store.dispatch('pause', value);
+        private pause(value: boolean): Promise<void> {
+            return this.$store.dispatch('pause', value);
+        }
     }
-}
 </script>
-
 <style lang="scss" scoped>
     $button-bg-color: #3f4548;
     nav#actions {

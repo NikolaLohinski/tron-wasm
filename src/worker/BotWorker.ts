@@ -7,17 +7,17 @@ import {
     WResultMessage,
     WIdleMessage,
 } from '@/worker/types';
-import {Turn} from '@/common/types';
+import {RegisterMoveFunc, Turn, UUID} from '@/common/types';
 
 import NewPlayer from '@/engine/PlayerFactory';
-import {IA} from '@/common/interfaces';
+import {AI} from '@/common/interfaces';
 import {MOVE} from '@/common/constants';
 import {Grid} from '@/engine/Grid';
 
 export default class BotWorker {
 
     private ctx: IWorkerContext;
-    private player?: IA;
+    private player?: AI;
 
     constructor(ctx: IWorkerContext) {
         this.ctx = ctx;
@@ -52,15 +52,29 @@ export default class BotWorker {
                 case MESSAGE_TYPE.BOOT:
                     // tslint:disable-next-line
                     // console.log(`[WORKER: ${message.workerID}]: boot order received`, message);
-                    NewPlayer(message.playerType, message.depth).then((player: IA) => {
-                        this.player = player;
-                        resolve({
+                    const register: RegisterMoveFunc = (correlationID, direction, depth) => {
+                        const result: WResultMessage = {
+                            type: MESSAGE_TYPE.RESULT,
                             workerID: message.workerID,
-                            correlationID: message.correlationID,
-                            origin: MESSAGE_TYPE.BOOT,
-                            type: MESSAGE_TYPE.IDLE,
+                            correlationID,
+                            origin: MESSAGE_TYPE.REQUEST,
+                            content: {
+                                depth,
+                                move: direction,
+                            },
+                        };
+                        this.ctx.postMessage(result);
+                    };
+                    NewPlayer(message.playerType, register.bind(this), message.depth)
+                        .then((player: AI) => {
+                            this.player = player;
+                            resolve({
+                                workerID: message.workerID,
+                                correlationID: message.correlationID,
+                                origin: MESSAGE_TYPE.BOOT,
+                                type: MESSAGE_TYPE.IDLE,
+                            });
                         });
-                    });
                     break;
                 case MESSAGE_TYPE.REQUEST:
                     // tslint:disable-next-line
@@ -68,27 +82,12 @@ export default class BotWorker {
                     if (!this.player) {
                         throw Error('worker is not booted, can not process request message');
                     }
-                    const self = this;
-
-                    const turn: Turn = {
+                    this.player.play({
+                        correlationID: message.correlationID,
                         userID: message.userID,
                         position: message.position,
                         grid: Grid.parse(message.grid),
-                        decide(move: MOVE, depth: number) {
-                            const result: WResultMessage = {
-                                workerID: message.workerID,
-                                correlationID: message.correlationID,
-                                origin: MESSAGE_TYPE.REQUEST,
-                                type: MESSAGE_TYPE.RESULT,
-                                content: {
-                                    depth,
-                                    move,
-                                },
-                            };
-                            self.ctx.postMessage(result);
-                        },
-                    };
-                    this.player.act(turn);
+                    });
 
                     const idleMessage: WIdleMessage = {
                         workerID: message.workerID,

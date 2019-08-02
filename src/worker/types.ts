@@ -34,9 +34,10 @@ export interface WErrorMessage extends WBaseMessage {
 
 export interface WRequestMessage extends WBaseMessage {
     type: MESSAGE_TYPE.REQUEST;
+    userID: UUID;
+    correlationID: UUID;
     position: Position;
     grid: Grid;
-    userID: UUID;
 }
 
 export interface WResultMessage extends WBaseMessage {

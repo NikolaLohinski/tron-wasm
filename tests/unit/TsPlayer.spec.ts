@@ -1,31 +1,33 @@
 import * as TypeMoq from 'typemoq';
 
-import {DecideFunc, Turn} from '@/common/types';
+import {RegisterMoveFunc, Turn, UUID} from '@/common/types';
 
 import NewPlayer from '@/engine/PlayerFactory';
-import {IA} from '@/common/interfaces';
+import {AI} from '@/common/interfaces';
 import {PLAYER_TYPE, MOVE} from '@/common/constants';
 import {Grid} from '@/engine/Grid';
 
 describe('TsPlayer', () => {
+    const correlationID: UUID = 'dc1fd0bc-0aa0-4dad-8160-12a673f39528';
+    const registerMock: TypeMoq.IMock<RegisterMoveFunc> = TypeMoq.Mock.ofType<RegisterMoveFunc>();
+
+    beforeEach(() => {
+        registerMock.reset();
+    });
+
     describe('Factory', () => {
         test('should return a player', () => {
             expect.assertions(1);
-            return expect(NewPlayer(PLAYER_TYPE.TS)).resolves.toBeDefined();
+            return expect(NewPlayer(PLAYER_TYPE.TS, registerMock.object)).resolves.toBeDefined();
         });
     });
 
     describe('play', () => {
-        const decideMock: TypeMoq.IMock<DecideFunc> = TypeMoq.Mock.ofType<DecideFunc>();
-
-        beforeEach(() => {
-            decideMock.reset();
-        });
-
         test('should call decide function', () => {
-            return NewPlayer(PLAYER_TYPE.TS).then((tsPlayer: IA) => {
+            return NewPlayer(PLAYER_TYPE.TS, registerMock.object).then((tsPlayer: AI) => {
                 const turn: Turn = {
                     userID: 'test',
+                    correlationID,
                     position: {
                         x: 1,
                         y: 1,
@@ -49,13 +51,11 @@ describe('TsPlayer', () => {
                         },
                     },
                     grid: new Grid(15, 15),
-                    decide: decideMock.object,
                 };
-                tsPlayer.act(turn);
-                decideMock.verify(
-                    (m) => m(TypeMoq.It.isAny(), TypeMoq.It.isAny()),
-                    TypeMoq.Times.atLeastOnce(),
-                );
+                tsPlayer.play(turn);
+                registerMock.verify((m) => {
+                    return m(correlationID, TypeMoq.It.isAny(), TypeMoq.It.isAny());
+                }, TypeMoq.Times.atLeastOnce());
             });
         });
     });

@@ -24,59 +24,57 @@
         </transition-group>
     </table>
 </template>
-
 <script lang="ts">
-import {Component, Vue, Watch} from 'vue-property-decorator';
-import {PlayerMetadata, PlayerPerformance, UUID} from '@/common/types';
-import {GAME_STATUS} from '@/common/constants';
+    import {Component, Vue, Watch} from 'vue-property-decorator';
+    import {PlayerMetadata, PlayerPerformance, UUID} from '@/common/types';
+    import {GAME_STATUS} from '@/common/constants';
 
-@Component
-export default class Scores extends Vue {
-    private readonly victories: { [id: string]: number } = {};
+    @Component
+    export default class Scores extends Vue {
+        private readonly victories: { [id: string]: number } = {};
 
-    get playersMetadata(): { [userID: string]: PlayerMetadata } {
-        return this.$store.getters.metadata;
-    }
-
-    get performances(): { [userID: string]: PlayerPerformance } {
-        return this.$store.getters.performances;
-    }
-
-    get metadata(): PlayerMetadata[] {
-        const metadata: PlayerMetadata[] = Object.values(this.playersMetadata);
-        metadata.sort(this.playerMetadataSorter.bind(this));
-        return metadata;
-    }
-
-    private playerMetadataSorter(p1: PlayerMetadata, p2: PlayerMetadata): number {
-        if (p1.alive && p2.alive) {
-            const victoriesP1 = this.victories[p1.id] ? this.victories[p1.id] : 0;
-            const victoriesP2 = this.victories[p2.id] ? this.victories[p2.id] : 0;
-            return victoriesP2 - victoriesP1;
+        get playersMetadata(): { [userID: string]: PlayerMetadata } {
+            return this.$store.getters.metadata;
         }
-        return p1.alive ? (p2.alive) ? 0 : -1 : 1;
-    }
 
-    get status(): GAME_STATUS {
-        return this.$store.getters.status;
-    }
+        get performances(): { [userID: string]: PlayerPerformance } {
+            return this.$store.getters.performances;
+        }
 
-    @Watch('status', {immediate: true})
-    private updateVictories(status: GAME_STATUS): void {
-        if (status === GAME_STATUS.FINISHED) {
-            Object.entries(this.playersMetadata).forEach(([userID, player]: [UUID, PlayerMetadata]) => {
-                if (player.alive) {
-                    if (!this.victories[userID]) {
-                        this.victories[userID] = 0;
+        get metadata(): PlayerMetadata[] {
+            const metadata: PlayerMetadata[] = Object.values(this.playersMetadata);
+            metadata.sort(this.playerMetadataSorter.bind(this));
+            return metadata;
+        }
+
+        private playerMetadataSorter(p1: PlayerMetadata, p2: PlayerMetadata): number {
+            if (p1.alive && p2.alive) {
+                const victoriesP1 = this.victories[p1.id] ? this.victories[p1.id] : 0;
+                const victoriesP2 = this.victories[p2.id] ? this.victories[p2.id] : 0;
+                return victoriesP2 - victoriesP1;
+            }
+            return p1.alive ? (p2.alive) ? 0 : -1 : 1;
+        }
+
+        get status(): GAME_STATUS {
+            return this.$store.getters.status;
+        }
+
+        @Watch('status', {immediate: true})
+        private updateVictories(status: GAME_STATUS): void {
+            if (status === GAME_STATUS.FINISHED) {
+                Object.entries(this.playersMetadata).forEach(([userID, player]: [UUID, PlayerMetadata]) => {
+                    if (player.alive) {
+                        if (!this.victories[userID]) {
+                            this.victories[userID] = 0;
+                        }
+                        this.victories[userID] += 1;
                     }
-                    this.victories[userID] += 1;
-                }
-            });
+                });
+            }
         }
     }
-}
 </script>
-
 <style lang="scss" scoped>
     table#scores {
         tr.score {

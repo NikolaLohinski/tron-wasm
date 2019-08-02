@@ -8,15 +8,15 @@ import {
     WErrorMessage,
     WIdleMessage,
 } from '@/worker/types';
-import {UUID, Turn} from '@/common/types';
+import {UUID, Turn, RegisterMoveFunc} from '@/common/types';
 
 // Mock Bot module import
 import NewPlayer from '@/engine/PlayerFactory';
 jest.mock('@/engine/PlayerFactory', () => jest.fn());
-const mockNewPlayer = (NewPlayer as any) as jest.Mock<Promise<IA>>;
+const mockNewPlayer = (NewPlayer as any) as jest.Mock<Promise<AI>>;
 
 import BotWorker from '@/worker/BotWorker';
-import {IA} from '@/common/interfaces';
+import {AI} from '@/common/interfaces';
 import {PLAYER_TYPE, MOVE} from '@/common/constants';
 import {Grid} from '@/engine/Grid';
 
@@ -26,7 +26,8 @@ describe('Bot Worker', () => {
         onmessage: jest.fn(),
     };
     const mockPlayer = {
-        act: jest.fn(),
+        register: (undefined as any) as RegisterMoveFunc,
+        play: jest.fn(),
     };
 
     let botWorker: BotWorker;
@@ -37,7 +38,12 @@ describe('Bot Worker', () => {
     beforeEach(() => {
 
         mockNewPlayer.mockClear();
-        mockNewPlayer.mockImplementationOnce(() => new Promise((rs) => rs(mockPlayer as IA)));
+        mockNewPlayer.mockImplementationOnce((type: PLAYER_TYPE, register: RegisterMoveFunc) => {
+            return new Promise((rs) => {
+                mockPlayer.register = register;
+                return rs(mockPlayer as AI);
+            });
+        });
 
         botWorker = new BotWorker(mockWorkerContext as IWorkerContext);
     });
@@ -101,15 +107,15 @@ describe('Bot Worker', () => {
             setTimeout(() => {
                 const expectedPlayArgs: Turn = {
                     userID: 'test',
+                    correlationID,
                     position: {
                         x: 0,
                         y: 0,
                     },
                     grid: new Grid(15, 15),
-                    decide: expect.any(Function),
                 };
-                expect(mockPlayer.act).toHaveBeenCalledTimes(1);
-                expect(mockPlayer.act).toHaveBeenCalledWith(expectedPlayArgs);
+                expect(mockPlayer.play).toHaveBeenCalledTimes(1);
+                expect(mockPlayer.play).toHaveBeenCalledWith(expectedPlayArgs);
 
                 done();
             }, 20);
@@ -117,7 +123,7 @@ describe('Bot Worker', () => {
 
         test('eventually responds with error on non booted worker', (done) => {
             mockWorkerContext.postMessage.mockClear();
-            mockPlayer.act.mockClear();
+            mockPlayer.play.mockClear();
 
             botWorker = new BotWorker(mockWorkerContext as IWorkerContext);
 
@@ -129,7 +135,7 @@ describe('Bot Worker', () => {
             botWorker.handleWEvent({ data: requestMessage } as WEvent);
 
             setTimeout(() => {
-                expect(mockPlayer.act).toHaveBeenCalledTimes(0);
+                expect(mockPlayer.play).toHaveBeenCalledTimes(0);
 
                 const expectedErrorMessage: WErrorMessage = {
                     type: MESSAGE_TYPE.ERROR,
@@ -148,9 +154,9 @@ describe('Bot Worker', () => {
         test('eventually posts response on players\' decisions and idle message when done', (done) => {
             Object.values(mockWorkerContext).forEach((method) => method.mockClear());
 
-            mockPlayer.act.mockImplementationOnce((turn: Turn) => {
-                turn.decide(MOVE.FORWARD, 1);
-                turn.decide(MOVE.LARBOARD, 2);
+            mockPlayer.play.mockImplementationOnce((turn: Turn) => {
+                mockPlayer.register(turn.correlationID, MOVE.FORWARD, 1);
+                mockPlayer.register(turn.correlationID, MOVE.LARBOARD, 2);
             });
 
             const requestMessage: WRequestMessage = {
@@ -197,7 +203,7 @@ describe('Bot Worker', () => {
                     correlationID,
                 };
 
-                expect(mockPlayer.act).toHaveBeenCalledTimes(1);
+                expect(mockPlayer.play).toHaveBeenCalledTimes(1);
 
                 expect(mockWorkerContext.postMessage).toHaveBeenCalledTimes(3);
                 expect(mockWorkerContext.postMessage).toHaveBeenNthCalledWith(1, expectedFirstMessage);

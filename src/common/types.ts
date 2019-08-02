@@ -2,7 +2,8 @@ import {MOVE, PLAYER_TYPE} from '@/common/constants';
 import {Grid} from '@/engine/Grid';
 
 export type UUID = string;
-export type DecideFunc = (direction: MOVE, depth: number) => void;
+export type RegisterMoveFunc = (correlationID: UUID, direction: MOVE, depth: number) => void;
+export type ActFunc = (id: UUID, content: { move: MOVE, depth: number }) => void;
 
 export interface Color {
     name: string;
@@ -54,9 +55,9 @@ export interface MoveTarget {
 }
 
 export interface Turn {
+    correlationID: UUID;
     userID: UUID;
     position: Position;
     grid: Grid;
-    decide: DecideFunc;
 }
 

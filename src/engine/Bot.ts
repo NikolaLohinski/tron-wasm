@@ -1,4 +1,3 @@
-import BotWorker from 'worker-loader!@/worker/glue.worker';
 import {
     IWorker,
     MESSAGE_TYPE,
@@ -8,14 +7,14 @@ import {
     WMessage,
     WRequestMessage,
     WResultMessage,
-} from '@/worker/types';
+} from '@/workers/bot/types';
 import {ActFunc, Position, UUID} from '@/common/types';
 import {generateUUID} from '@/common/functions';
 import {Player} from '@/common/interfaces';
 import {PLAYER_TYPE, MOVE} from '@/common/constants';
 import {Grid} from '@/engine/Grid';
 
-export const BOOT_TIMEOUT_MS = 1000;
+export const BOOT_TIMEOUT_MS = 2000;
 
 export default class Bot implements Player {
     private worker: IWorker;
@@ -31,7 +30,7 @@ export default class Bot implements Player {
 
     constructor(id: UUID, playerType: PLAYER_TYPE, depth?: number) {
         this.id = id;
-        this.worker = new (BotWorker as any)();
+        this.worker = new Worker('bot.worker.js');
         this.bootTimeout = -1;
         this.playerType = playerType;
         this.depth = depth;
@@ -40,8 +39,8 @@ export default class Bot implements Player {
 
     public boot(correlationID: UUID): Promise<void> {
         this.worker.terminate();
-        return new Promise((resolveBoot) => {
-            this.worker = new (BotWorker as any)();
+        return new Promise((resolveBoot, reject) => {
+            this.worker = new Worker('bot.worker.js');
 
             this.worker.addEventListener(NATIVE_WORKER_MESSAGE_TYPE.MESSAGE, this.handleWEvent.bind(this));
             this.worker.addEventListener(NATIVE_WORKER_MESSAGE_TYPE.ERROR, this.handleFatalWError.bind(this));
@@ -65,8 +64,8 @@ export default class Bot implements Player {
             this.worker.postMessage(bootMessage);
 
             this.bootTimeout = setTimeout(() => {
-                throw Error(`boot timeout after ${BOOT_TIMEOUT_MS} ms`);
-            }, BOOT_TIMEOUT_MS);
+                reject(`boot timeout after ${BOOT_TIMEOUT_MS} ms`);
+            }, BOOT_TIMEOUT_MS) as any;
         });
     }
 
@@ -76,7 +75,7 @@ export default class Bot implements Player {
 
     public requestAction(corr: UUID, position: Position, grid: Grid, act: ActFunc): void {
         if (!this.idle) {
-            throw Error('can not request action of bot that is not idle');
+            throw Error('can not request action of rs-bot that is not idle');
         }
 
         this.actFunction = act;

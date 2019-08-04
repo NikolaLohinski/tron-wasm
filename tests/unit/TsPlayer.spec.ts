@@ -7,7 +7,7 @@ import {AI} from '@/common/interfaces';
 import {PLAYER_TYPE, MOVE} from '@/common/constants';
 import {Grid} from '@/engine/Grid';
 
-describe('TsPlayer', () => {
+describe('PlayerFactory', () => {
     const correlationID: UUID = 'dc1fd0bc-0aa0-4dad-8160-12a673f39528';
     const registerMock: TypeMoq.IMock<RegisterMoveFunc> = TypeMoq.Mock.ofType<RegisterMoveFunc>();
 
@@ -22,7 +22,7 @@ describe('TsPlayer', () => {
         });
     });
 
-    describe('play', () => {
+    describe('TsPlayer > play', () => {
         test('should call decide function', () => {
             return NewPlayer(PLAYER_TYPE.TS, registerMock.object).then((tsPlayer: AI) => {
                 const turn: Turn = {

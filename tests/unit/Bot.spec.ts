@@ -1,7 +1,10 @@
 import * as TypeMoq from 'typemoq';
 
-import {MockBotWorker} from '../mocks/glue.worker';
 import {Position, UUID} from '@/common/types';
+import {PLAYER_TYPE, MOVE} from '@/common/constants';
+
+import {Grid} from '@/engine/Grid';
+
 import {
     MESSAGE_TYPE,
     NATIVE_WORKER_MESSAGE_TYPE,
@@ -10,21 +13,22 @@ import {
     WRequestMessage,
     WResultMessage,
     WIdleMessage,
-    WErrorMessage,
-} from '@/worker/types';
+    WErrorMessage, IWorker,
+} from '@/workers/bot/types';
 
 import Bot from '@/engine/Bot';
-import {PLAYER_TYPE, MOVE} from '@/common/constants';
-import {Grid} from '@/engine/Grid';
 
 describe('Bot', () => {
+    const MockWorker: TypeMoq.IMock<IWorker> = TypeMoq.Mock.ofType<IWorker>();
     const botID: UUID = '9951ec73-3a46-4ad1-86ed-5c2cd0788112';
-
     const playerType = PLAYER_TYPE.TS;
+
     let bot: Bot;
 
     beforeEach(() => {
-        MockBotWorker.reset();
+        MockWorker.reset();
+        // @ts-ignore
+        global.Worker = class { constructor() { return MockWorker.object; }};
     });
 
     describe('constructor', () => {
@@ -38,7 +42,7 @@ describe('Bot', () => {
         const correlationID: UUID = 'd64385ef-17ed-4891-bb67-9273816be97f';
 
         beforeEach(() => {
-            MockBotWorker.reset();
+            MockWorker.reset();
 
             bot = new Bot(botID, playerType);
         });
@@ -50,15 +54,15 @@ describe('Bot', () => {
 
             // Then we verify assertions
             setTimeout(() => {
-                MockBotWorker.verify((m) => m.terminate(), TypeMoq.Times.once());
+                MockWorker.verify((m) => m.terminate(), TypeMoq.Times.once());
 
-                MockBotWorker.verify((m) => {
+                MockWorker.verify((m) => {
                     return m.addEventListener(NATIVE_WORKER_MESSAGE_TYPE.MESSAGE, TypeMoq.It.isAny());
                 }, TypeMoq.Times.once());
-                MockBotWorker.verify((m) => {
+                MockWorker.verify((m) => {
                     return m.addEventListener(NATIVE_WORKER_MESSAGE_TYPE.ERROR, TypeMoq.It.isAny());
                 }, TypeMoq.Times.once());
-                MockBotWorker.verify((m) => m.postMessage(TypeMoq.It.isAny()), TypeMoq.Times.once());
+                MockWorker.verify((m) => m.postMessage(TypeMoq.It.isAny()), TypeMoq.Times.once());
 
                 done();
             }, 20);
@@ -109,7 +113,7 @@ describe('Bot', () => {
         const correlationID: UUID = 'd64385ef-17ed-4891-bb67-9273816be97f';
 
         beforeEach(() => {
-            MockBotWorker.reset();
+            MockWorker.reset();
 
             bot = new Bot(botID, playerType);
 
@@ -158,14 +162,14 @@ describe('Bot', () => {
            bot.destroy();
 
            expect(bot.isIdle()).toBeFalsy();
-           MockBotWorker.verify((m) => m.terminate(), TypeMoq.Times.once());
+           MockWorker.verify((m) => m.terminate(), TypeMoq.Times.once());
        });
     });
 
     describe('[PRIVATE] handleWEvent', () => {
         let bootResolved: boolean;
         beforeEach(() => {
-            MockBotWorker.reset();
+            MockWorker.reset();
 
             bot = new Bot(botID, playerType);
 
@@ -255,7 +259,7 @@ describe('Bot', () => {
 
     describe('[PRIVATE] handleFatalWError', () => {
         beforeEach(() => {
-            MockBotWorker.reset();
+            MockWorker.reset();
 
             bot = new Bot(botID, playerType);
         });
@@ -269,7 +273,7 @@ describe('Bot', () => {
             } catch (e) {
                 expect(e).toEqual(expectedError);
             }
-            MockBotWorker.verify((m) => m.terminate(), TypeMoq.Times.once());
+            MockWorker.verify((m) => m.terminate(), TypeMoq.Times.once());
         });
     });
 });

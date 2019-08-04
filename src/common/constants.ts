@@ -14,7 +14,7 @@ export const enum GAME_STATUS {
 
 export const enum PLAYER_TYPE {
     TS = 'TS',
-    RS = 'RS',
+    RUST = 'RS',
 }
 
 export const COLORS: Color[] = [

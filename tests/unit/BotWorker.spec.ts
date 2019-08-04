@@ -7,7 +7,7 @@ import {
     WRequestMessage,
     WErrorMessage,
     WIdleMessage,
-} from '@/worker/types';
+} from '@/workers/bot/types';
 import {UUID, Turn, RegisterMoveFunc} from '@/common/types';
 
 // Mock Bot module import
@@ -15,7 +15,7 @@ import NewPlayer from '@/engine/PlayerFactory';
 jest.mock('@/engine/PlayerFactory', () => jest.fn());
 const mockNewPlayer = (NewPlayer as any) as jest.Mock<Promise<AI>>;
 
-import BotWorker from '@/worker/BotWorker';
+import BotWorker from '@/workers/bot/BotWorker';
 import {AI} from '@/common/interfaces';
 import {PLAYER_TYPE, MOVE} from '@/common/constants';
 import {Grid} from '@/engine/Grid';

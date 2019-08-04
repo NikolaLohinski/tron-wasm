@@ -1,5 +1,5 @@
 <template>
-    <table id="grid">
+    <table id="grid" :small="grid.sizeY <= 15 && grid.sizeX <= 15" :big="grid.sizeY >= 25 && grid.sizeX <= 25">
         <tr v-for="y in (grid.sizeY + 2)" :key="`row_${y - 2}`" class="row">
             <td v-for="x in (grid.sizeX + 2)"
                 :key="`col_${x - 2}`"
@@ -74,18 +74,8 @@
         td.cell {
             border: 1px solid #666;
             padding: 0;
-            @media screen and (max-width: 650px) {
-                width: 10px;
-                height: 10px;
-            }
-            @media screen and (min-width: 650px) {
-                width: 14px;
-                height: 14px;
-            }
-            @media screen and (min-width: 1000px) {
-                width: 18px;
-                height: 18px;
-            }
+            width: 14px;
+            height: 14px;
         }
 
         td.wall {
@@ -116,6 +106,18 @@
                 }
             }
             animation: infinite .2s blink linear;
+        }
+        &[small='true'] td.cell {
+            @media screen and (min-width: 1000px) {
+                width: 20px;
+                height: 20px;
+            }
+        }
+        &[big='true'] td.cell {
+            @media screen and (max-width: 750px) {
+                width: 12px;
+                height: 12px;
+            }
         }
     }
 </style>

@@ -47,13 +47,13 @@ interface StateOfAction {
 export default new Vuex.Store({
   state: {
     gameMetadata: {
-      gridX: 20,
-      gridY: 25,
+      gridX: 10,
+      gridY: 15,
       turnTimeoutMs: 100,
       playersConstructors: [
         {type: PLAYER_TYPE.TS, depth: 5},
         {type: PLAYER_TYPE.TS, depth: 8},
-        {type: PLAYER_TYPE.TS, depth: 10},
+        {type: PLAYER_TYPE.RUST},
       ],
     },
     simulation: {

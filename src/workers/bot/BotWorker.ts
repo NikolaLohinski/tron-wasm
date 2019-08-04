@@ -6,12 +6,11 @@ import {
     WMessage,
     WResultMessage,
     WIdleMessage,
-} from '@/worker/types';
-import {RegisterMoveFunc, Turn, UUID} from '@/common/types';
+} from '@/workers/bot/types';
+import {RegisterMoveFunc} from '@/common/types';
 
 import NewPlayer from '@/engine/PlayerFactory';
 import {AI} from '@/common/interfaces';
-import {MOVE} from '@/common/constants';
 import {Grid} from '@/engine/Grid';
 
 export default class BotWorker {
@@ -24,7 +23,7 @@ export default class BotWorker {
     }
 
     public handleWEvent(event: WEvent) {
-        // tslint:disable-next-line
+        // tslint:disable-n
         const message: WMessage = event.data;
 
         this.handleWMessage(message)

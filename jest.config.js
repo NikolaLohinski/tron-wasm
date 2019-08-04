@@ -8,16 +8,15 @@ module.exports = {
     'tsx'
   ],
   transform: {
+    '^.+\\.tsx?$': 'ts-jest',
     '^.+\\.vue$': 'vue-jest',
-    '.+\\.(css|styl|less|sass|scss|svg|png|jpg|ttf|woff|woff2)$': 'jest-transform-stub',
-    '^.+\\.tsx?$': 'ts-jest'
+    '.+\\.(css|styl|less|sass|scss|svg|png|jpg|ico|ttf|woff|woff2)$': 'jest-transform-stub'
   },
   transformIgnorePatterns: [
     '/node_modules/'
   ],
   moduleNameMapper: {
-    '^@/(.*)$': '<rootDir>/src/$1',
-    'worker-loader!@/worker/glue.worker': '<rootDir>/tests/mocks/glue.worker'
+    '^@/(.*)$': '<rootDir>/src/$1'
   },
   snapshotSerializers: [
     'jest-serializer-vue'
@@ -30,9 +29,4 @@ module.exports = {
     'jest-watch-typeahead/filename',
     'jest-watch-typeahead/testname'
   ],
-  globals: {
-    'ts-jest': {
-      babelConfig: true
-    }
-  }
 };

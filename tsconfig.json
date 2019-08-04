@@ -13,11 +13,14 @@
     "baseUrl": ".",
     "types": [
       "webpack-env",
-      "jest"
+      "ts-jest"
     ],
     "paths": {
       "@/*": [
         "src/*"
+      ],
+      "®/*": [
+        "crates/*"
       ]
     },
     "lib": [
@@ -35,6 +38,7 @@
     "tests/**/*.tsx"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "crates/**/*.rs"
   ]
 }

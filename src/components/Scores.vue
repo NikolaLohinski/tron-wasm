@@ -21,7 +21,14 @@ import {PLAYER_TYPE} from "../common/constants";
                     <img :src="require(`@/assets/${getIconName(player.type)}`)" :alt="`${player.type} icon`"/>
                 </td>
                 <template v-if="performances[player.id]">
-                    <td class="depth">{{ player.alive ? performances[player.id].depth : 0 }}/{{ player.depth }}</td>
+                    <td class="depth">
+                        <span v-if="player.depth">
+                        {{ player.alive ? performances[player.id].depth : 0 }}/{{ player.depth }}
+                        </span>
+                        <span v-else>
+                            ∅
+                        </span>
+                    </td>
                     <td class="duration">{{ player.alive ? performances[player.id].duration : 0 }} ms</td>
                 </template>
                 <td class="victories">{{ victories[player.id] || 0 }}</td>
@@ -59,9 +66,9 @@ export default class Scores extends Vue {
     private getIconName(type: PLAYER_TYPE): string {
         switch (type) {
             case PLAYER_TYPE.TS:
-                return 'typescript.png';
-            case PLAYER_TYPE.RS:
-                return 'rust-wasm.png';
+                return 'typescript.ico';
+            case PLAYER_TYPE.RUST:
+                return 'rust-wasm.ico';
             default:
                 throw Error(`unknown player type "${type}"`);
         }
@@ -119,6 +126,29 @@ export default class Scores extends Vue {
                 &.duration {
                     width: 60px;
                     white-space: pre-wrap;
+                }
+                @media screen and (max-width: 650px) {
+                    font-size: 12px;
+                    padding: 2px;
+                    &.name {
+                        min-width: 100px;
+                    }
+                    &.color {
+                        div.thumbnail {
+                            width: 8px;
+                            height: 8px;
+                        }
+                        min-width: 10px;
+                    }
+                    &.type img {
+                        width: 15px;
+                    }
+                    &.depth {
+                        width: 40px;
+                    }
+                    &.duration {
+                        width: 40px;
+                    }
                 }
             }
 

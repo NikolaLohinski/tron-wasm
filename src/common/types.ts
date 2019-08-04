@@ -16,7 +16,7 @@ export interface PlayerMetadata {
     color: Color;
     alive: boolean;
     type: PLAYER_TYPE;
-    depth: number;
+    depth?: number;
 }
 
 export interface PlayerPerformance {

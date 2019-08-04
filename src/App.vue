@@ -101,10 +101,14 @@ export default class App extends Vue {
             .playground {
                 margin: 15px auto;
                 white-space: nowrap;
+                text-align: center;
                 .grid, .scores {
+                    margin: 15px auto;
+                    @media screen and (min-width: 750px) {
+                        display: inline-block;
+                        margin: 0 10px;
+                    }
                     vertical-align: middle;
-                    display: inline-block;
-                    margin: 0 10px;
                 }
             }
         }

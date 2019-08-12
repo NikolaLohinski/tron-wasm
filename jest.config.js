@@ -1,32 +1,32 @@
 module.exports = {
   moduleFileExtensions: [
-    'js',
-    'jsx',
-    'json',
-    'vue',
-    'ts',
-    'tsx'
-  ],
-  transform: {
-    '^.+\\.tsx?$': 'ts-jest',
-    '^.+\\.vue$': 'vue-jest',
-    '.+\\.(css|styl|less|sass|scss|svg|png|jpg|ico|ttf|woff|woff2)$': 'jest-transform-stub'
-  },
-  transformIgnorePatterns: [
-    '/node_modules/'
+    "js",
+    "jsx",
+    "json",
+    "vue",
+    "ts",
+    "tsx",
   ],
   moduleNameMapper: {
-    '^@/(.*)$': '<rootDir>/src/$1'
+    "^@/(.*)$": "<rootDir>/src/$1",
   },
   snapshotSerializers: [
-    'jest-serializer-vue'
+    "jest-serializer-vue",
   ],
   testMatch: [
-    '**/tests/unit/**/*.spec.(js|jsx|ts|tsx)|**/__tests__/*.(js|jsx|ts|tsx)'
+    "**/tests/unit/**/*.spec.(js|jsx|ts|tsx)|**/__tests__/*.(js|jsx|ts|tsx)",
   ],
-  testURL: 'http://localhost/',
+  testURL: "http://localhost/",
+  transform: {
+    ".+\\.(css|styl|less|sass|scss|svg|png|jpg|ico|ttf|woff|woff2)$": "jest-transform-stub",
+    "^.+\\.tsx?$": "ts-jest",
+    "^.+\\.vue$": "vue-jest",
+  },
+  transformIgnorePatterns: [
+    "/node_modules/",
+  ],
   watchPlugins: [
-    'jest-watch-typeahead/filename',
-    'jest-watch-typeahead/testname'
+    "jest-watch-typeahead/filename",
+    "jest-watch-typeahead/testname",
   ],
 };

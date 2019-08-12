@@ -1,262 +1,161 @@
-const { join, resolve } = require('path');
+const { join, resolve } = require("path");
 
-const HTMLWebpackPlugin = require('html-webpack-plugin');
-const WASMPackPlugin = require('@wasm-tool/wasm-pack-plugin');
-const VueLoaderPlugin = require('vue-loader/lib/plugin');
+const HTMLWebpackPlugin = require("html-webpack-plugin");
+const WASMPackPlugin = require("@wasm-tool/wasm-pack-plugin");
+const VueLoaderPlugin = require("vue-loader/lib/plugin");
 
-const RUST_ALIAS = '®';
-const SRC_ALIAS = '@';
+const RUST_ALIAS = "®";
+const SRC_ALIAS = "@";
 
-const SRC = resolve(__dirname, 'src');
-const WORKERS = join(SRC, 'workers');
-const RUST = resolve(__dirname, 'crates');
-const DIST = resolve(__dirname, 'dist');
+const SRC = resolve(__dirname, "src");
+const WORKERS = join(SRC, "workers");
+const RUST = resolve(__dirname, "crates");
+const DIST = resolve(__dirname, "dist");
 
 const devServer = {
   contentBase: DIST,
-  publicPath: '/',
+  publicPath: "/",
 };
 
 const Main = {
-  entry: {
-    app: join(SRC, 'main.ts'),
-  },
-  output: {
-    path: DIST,
-    filename: '[name].[hash].js',
-  },
-  plugins: [
-    new VueLoaderPlugin(),
-    new HTMLWebpackPlugin({
-      template: join(SRC, 'html', 'index.html'),
-      favicon: join(SRC, 'assets', 'tron.ico'),
-    }),
-  ],
-  resolve: {
-    extensions: ['.js', '.vue', '.json', '.ts'],
-    alias: {
-      [SRC_ALIAS]: SRC,
-    },
-  },
   devServer,
+  entry: {
+    app: join(SRC, "main.ts"),
+  },
   module: {
     rules: [
       {
         test: /\.vue$/,
         use: [
           {
-            loader: 'vue-loader',
-          }
-        ]
+            loader: "vue-loader",
+          },
+        ],
       },
       {
         test: /\.(png|jpe?g|gif|webp|ico)(\?.*)?$/,
         use: [
           {
-            loader: 'url-loader',
+            loader: "url-loader",
             options: {
-              limit: 4096,
               fallback: {
-                loader: 'file-loader',
+                loader: "file-loader",
                 options: {
-                  name: 'img/[name].[hash:8].[ext]'
-                }
-              }
-            }
-          }
-        ]
+                  name: "img/[name].[hash:8].[ext]",
+                },
+              },
+              limit: 4096,
+            },
+          },
+        ],
       },
       {
         test: /\.ts$/,
         use: [
           {
-            loader: 'babel-loader'
+            loader: "babel-loader",
           },
           {
-            loader: 'ts-loader',
+            loader: "ts-loader",
             options: {
-              transpileOnly: true,
               appendTsSuffixTo: [
-                '\\.vue$'
-              ]
-            }
-          }
-        ]
+                "\\.vue$",
+              ],
+              transpileOnly: true,
+            },
+          },
+        ],
       },
       {
         test: /\.scss$/,
-        oneOf: [
+        use: [
           {
-            resourceQuery: /module/,
-            use: [
-              {
-                loader: 'vue-style-loader',
-                options: {
-                  sourceMap: false,
-                  shadowMode: false
-                }
-              },
-              {
-                loader: 'css-loader',
-                options: {
-                  sourceMap: false,
-                  importLoaders: 2,
-                  modules: true,
-                  localIdentName: '[name]_[local]_[hash:base64:5]'
-                }
-              },
-              {
-                loader: 'postcss-loader',
-                options: {
-                  sourceMap: false
-                }
-              },
-              {
-                loader: 'sass-loader',
-                options: {
-                  sourceMap: false
-                }
-              }
-            ]
+            loader: "vue-style-loader",
+            options: {
+              shadowMode: false,
+              sourceMap: false,
+            },
           },
           {
-            resourceQuery: /\?vue/,
-            use: [
-              {
-                loader: 'vue-style-loader',
-                options: {
-                  sourceMap: false,
-                  shadowMode: false
-                }
-              },
-              {
-                loader: 'css-loader',
-                options: {
-                  sourceMap: false,
-                  importLoaders: 2
-                }
-              },
-              {
-                loader: 'postcss-loader',
-                options: {
-                  sourceMap: false
-                }
-              },
-              {
-                loader: 'sass-loader',
-                options: {
-                  sourceMap: false
-                }
-              }
-            ]
+            loader: "css-loader",
+            options: {
+              importLoaders: 2,
+              sourceMap: false,
+            },
           },
           {
-            test: /\.module\.\w+$/,
-            use: [
-              {
-                loader: 'vue-style-loader',
-                options: {
-                  sourceMap: false,
-                  shadowMode: false
-                }
-              },
-              {
-                loader: 'css-loader',
-                options: {
-                  sourceMap: false,
-                  importLoaders: 2,
-                  modules: true,
-                  localIdentName: '[name]_[local]_[hash:base64:5]'
-                }
-              },
-              {
-                loader: 'postcss-loader',
-                options: {
-                  sourceMap: false
-                }
-              },
-              {
-                loader: 'sass-loader',
-                options: {
-                  sourceMap: false
-                }
-              }
-            ]
+            loader: "postcss-loader",
+            options: {
+              sourceMap: false,
+            },
           },
           {
-            use: [
-              {
-                loader: 'vue-style-loader',
-                options: {
-                  sourceMap: false,
-                  shadowMode: false
-                }
-              },
-              {
-                loader: 'css-loader',
-                options: {
-                  sourceMap: false,
-                  importLoaders: 2
-                }
-              },
-              {
-                loader: 'postcss-loader',
-                options: {
-                  sourceMap: false
-                }
-              },
-              {
-                loader: 'sass-loader',
-                options: {
-                  sourceMap: false
-                }
-              }
-            ]
-          }
-        ]
-      }
-    ]
+            loader: "sass-loader",
+            options: {
+              sourceMap: false,
+            },
+          },
+        ],
+      },
+    ],
+  },
+  output: {
+    filename: "[name].[hash].js",
+    path: DIST,
+  },
+  plugins: [
+    new VueLoaderPlugin(),
+    new HTMLWebpackPlugin({
+      favicon: join(SRC, "assets", "tron.ico"),
+      template: join(SRC, "html", "index.html"),
+    }),
+  ],
+  resolve: {
+    alias: {
+      [SRC_ALIAS]: SRC,
+    },
+    extensions: [".js", ".vue", ".json", ".ts"],
   },
 };
 
 const BotWorker = {
-  entry: join(WORKERS, 'bot', 'worker.ts'),
-  output: {
-    path: DIST,
-    filename: 'bot.worker.js',
-  },
-  target: 'webworker',
-  plugins: [
-    new WASMPackPlugin({
-      crateDirectory: join(RUST, 'bot'),
-    }),
-  ],
-  resolve: {
-    extensions: ['.ts', '.js', '.wasm'],
-    alias: {
-      [SRC_ALIAS]: SRC,
-      [RUST_ALIAS]: RUST,
-    },
-  },
   devServer,
+  entry: join(WORKERS, "bot", "worker.ts"),
   module: {
     rules: [
       {
         test: /\.ts$/,
         use: [
           {
-            loader: 'babel-loader'
+            loader: "babel-loader",
           },
           {
-            loader: 'ts-loader',
+            loader: "ts-loader",
             options: {
               transpileOnly: true,
-            }
-          }
-        ]
-      }
-    ]
+            },
+          },
+        ],
+      },
+    ],
   },
+  output: {
+    filename: "bot.worker.js",
+    path: DIST,
+  },
+  plugins: [
+    new WASMPackPlugin({
+      crateDirectory: join(RUST, "bot"),
+    }),
+  ],
+  resolve: {
+    alias: {
+      [SRC_ALIAS]: SRC,
+      [RUST_ALIAS]: RUST,
+    },
+    extensions: [".ts", ".js", ".wasm"],
+  },
+  target: "webworker",
 };
 
 module.exports = [Main, BotWorker];

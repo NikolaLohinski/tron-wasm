@@ -20,17 +20,8 @@ import {PLAYER_TYPE} from "../common/constants";
                 <td class="type">
                     <img :src="require(`@/assets/${getIconName(player.type)}`)" :alt="`${player.type} icon`"/>
                 </td>
-                <template v-if="performances[player.id]">
-                    <td class="depth">
-                        <span v-if="player.depth">
-                        {{ player.alive ? performances[player.id].depth : 0 }}/{{ player.depth }}
-                        </span>
-                        <span v-else>
-                            ∅
-                        </span>
-                    </td>
-                    <td class="duration">{{ player.alive ? performances[player.id].duration : 0 }} ms</td>
-                </template>
+                <td class="depth">{{ player.performance.depth }} / {{ maxDepths[player.id] || player.performance.depth }}</td>
+                <td class="duration">{{ player.performance.duration }} ms</td>
                 <td class="victories">{{ victories[player.id] || 0 }}</td>
             </tr>
         </transition-group>
@@ -38,25 +29,28 @@ import {PLAYER_TYPE} from "../common/constants";
 </template>
 <script lang="ts">
 import {Component, Vue, Watch} from 'vue-property-decorator';
-import {PlayerMetadata, PlayerPerformance, UUID} from '@/common/types';
+import {Protagonist, Performance, UUID} from '@/common/types';
 import {GAME_STATUS, PLAYER_TYPE} from '@/common/constants';
 
 @Component
 export default class Scores extends Vue {
     private readonly victories: { [id: string]: number } = {};
+    private readonly maxDepths: { [id: string]: number } = {};
 
-    get playersMetadata(): { [userID: string]: PlayerMetadata } {
-        return this.$store.getters.metadata;
+    get protagonists(): { [userID: string]: Protagonist } {
+        return this.$store.getters.protagonists;
     }
 
-    get performances(): { [userID: string]: PlayerPerformance } {
-        return this.$store.getters.performances;
-    }
-
-    get metadata(): PlayerMetadata[] {
-        const metadata: PlayerMetadata[] = Object.values(this.playersMetadata);
-        metadata.sort(this.playerMetadataSorter.bind(this));
-        return metadata;
+    get metadata(): Protagonist[] {
+        const protagonists: Protagonist[] = Object.values(this.protagonists);
+        protagonists.forEach((p: Protagonist) => {
+          if (!this.maxDepths[p.id]) {
+            this.maxDepths[p.id] = p.performance.depth;
+          }
+          this.maxDepths[p.id] = Math.max(p.performance.depth, this.maxDepths[p.id]);
+        });
+        protagonists.sort(this.playerMetadataSorter.bind(this));
+        return protagonists;
     }
 
     get status(): GAME_STATUS {
@@ -74,7 +68,7 @@ export default class Scores extends Vue {
         }
     }
 
-    private playerMetadataSorter(p1: PlayerMetadata, p2: PlayerMetadata): number {
+    private playerMetadataSorter(p1: Protagonist, p2: Protagonist): number {
         if (p1.alive && p2.alive) {
             const victoriesP1 = this.victories[p1.id] ? this.victories[p1.id] : 0;
             const victoriesP2 = this.victories[p2.id] ? this.victories[p2.id] : 0;
@@ -86,7 +80,7 @@ export default class Scores extends Vue {
     @Watch('status', {immediate: true})
     private updateVictories(status: GAME_STATUS): void {
         if (status === GAME_STATUS.FINISHED) {
-            Object.entries(this.playersMetadata).forEach(([userID, player]: [UUID, PlayerMetadata]) => {
+            Object.entries(this.protagonists).forEach(([userID, player]: [UUID, Protagonist]) => {
                 if (player.alive) {
                     if (!this.victories[userID]) {
                         this.victories[userID] = 0;

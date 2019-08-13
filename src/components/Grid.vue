@@ -11,19 +11,24 @@
 </template>
 <script lang="ts">
     import {Component, Vue, Watch} from 'vue-property-decorator';
-    import {PlayerMetadata, Position, UUID} from '@/common/types';
+    import {Protagonist, Position, Color} from '@/common/types';
     import {GAME_STATUS} from '@/common/constants';
 
     @Component
     export default class Grid extends Vue {
 
-        get positions(): UUID[] {
-            return this.$store.getters.positions;
+        get protagonists(): { [id: string]: Protagonist } {
+            return this.$store.getters.protagonists;
+        }
+
+        get filling(): Array<[Position, boolean, Color]> {
+            return Object.values(this.protagonists).map((p: Protagonist) => {
+              return [p.position, p.alive, p.color];
+            });
         }
 
         get grid(): { sizeX: number, sizeY: number } {
-            const metadata = this.$store.getters.gameMetadata;
-            return {sizeX: metadata.gridX, sizeY: metadata.gridY};
+            return this.$store.getters.simulation.grid;
         }
 
         get clear(): boolean {
@@ -34,18 +39,13 @@
             return document.getElementById(`cell_${position.x}_${position.y}`);
         }
 
-        private metadata(id: UUID): PlayerMetadata {
-            return this.$store.getters.metadata[id];
-        }
-
-        @Watch('positions', {immediate: true, deep: true})
-        private updateGrid(newPositions: { [id: string]: Position }): void {
-            Object.entries(newPositions).forEach(([userID, position]: [UUID, Position]) => {
-                const metadata = this.metadata(userID);
-                const cell = Grid.getCell(position);
-                if (cell && metadata) {
-                    cell.style.background = metadata.color.code;
-                    if (!metadata.alive) {
+        @Watch('filling', {deep: true})
+        private updateGrid(filling: Array<[Position, boolean, Color]>): void {
+            filling.forEach((fill: [Position, boolean, Color]) => {
+                const cell = Grid.getCell(fill[0]);
+                if (cell && fill[0]) {
+                    cell.style.background = fill[2].code;
+                    if (!fill[1]) {
                         cell.classList.add('dead');
                     }
                 }

@@ -1,177 +1,205 @@
-import * as TypeMoq from 'typemoq';
-// Mock Bot module import
-import Bot from '@/engine/Bot';
-import Game from '@/engine/Game';
-import {Player} from '@/common/interfaces';
-import {GAME_STATUS, MOVE, PLAYER_TYPE} from '@/common/constants';
+import {anything, FlushPromises} from './utils';
 
-jest.mock('@/engine/Bot', () => jest.fn());
-const mockBot = (Bot as any) as jest.Mock<typeof Bot>;
+import {Player} from '@/common/interfaces';
+import {GAME_STATUS, PLAYER_TYPE} from '@/common/constants';
+import {ActFunc} from '@/common/types';
+
+import Grid from '@/engine/Grid';
+import Game from '@/engine/Game';
 
 describe('Game', () => {
+    const gridSizeX = 15;
+    const gridSizeY = 15;
+    const timeout = 100;
+
+    let firstPlayer: jest.Mocked<Player>;
+    let secondPlayer: jest.Mocked<Player>;
+
+    let game: Game;
+
     beforeEach(() => {
-        mockBot.mockClear();
+        firstPlayer = {
+            id: 'b4bab070-e6fb-4be5-ad79-be6c13dae260',
+            type: PLAYER_TYPE.TS,
+            parameters: {
+                first: 'parameter',
+            },
+            boot: jest.fn(),
+            isIdle: jest.fn(),
+            requestAction: jest.fn(),
+            destroy: jest.fn(),
+        };
+        secondPlayer = {
+            id: '4debbb4d-8179-4040-a46e-9336fefbd38f',
+            type: PLAYER_TYPE.TS,
+            parameters: {
+                second: 'parameter',
+            },
+            boot: jest.fn(),
+            isIdle: jest.fn(),
+            requestAction: jest.fn(),
+            destroy: jest.fn(),
+        };
+
+        game = new Game(gridSizeX, gridSizeY, timeout, [firstPlayer, secondPlayer]);
     });
 
     describe('constructor', () => {
-        test('should initialize and create a defined number of players', () => {
-            const game = new Game(15, 15, 100, [
-                { type: PLAYER_TYPE.TS, depth: 42 },
-                { type: PLAYER_TYPE.TS, depth: 52 },
-            ]);
+        test('default', () => {
             expect(game).toBeDefined();
-            expect(mockBot).toHaveBeenCalledTimes(2);
+            expect(game.turnTimeoutMs).toEqual(timeout);
+            expect(game.grid).toBeDefined();
+            expect(game.grid.sizeX).toEqual(gridSizeX);
+            expect(game.grid.sizeY).toEqual(gridSizeY);
+            expect(game.grid.isEmpty()).toBeTruthy();
         });
     });
 
-    describe('getPlayersIDs', () => {
-        test('should return a number of ids matching the number of players', () => {
-            const game = new Game(15, 15, 100, [
-                { type: PLAYER_TYPE.TS, depth: 1 },
-                { type: PLAYER_TYPE.TS, depth: 2 },
-                { type: PLAYER_TYPE.TS, depth: 3 },
-            ]);
-            expect(game.getPlayersIDs()).toHaveLength(3);
+    describe('isDead', () => {
+        test('default', () => {
+            const dead = game.isDead(firstPlayer.id);
+
+            expect(dead).toBeFalsy();
+        });
+
+        test('when looking for a player that does not exist', () => {
+            expect(() => game.isDead('whatever')).toThrowError();
         });
     });
 
     describe('getPosition', () => {
-        const game = new Game(15, 15, 100, [
-            { type: PLAYER_TYPE.TS, depth: 1 },
-            { type: PLAYER_TYPE.TS, depth: 2 },
-            { type: PLAYER_TYPE.TS, depth: 3 },
-        ]);
+        test('default', () => {
+            const position = game.getPosition(firstPlayer.id);
 
-        test('should return uninitialized positions for all players', () => {
-            const ids = game.getPlayersIDs();
-            for (const id of ids) {
-                expect(game.getPosition(id)).toEqual({ x: -1, y: -1 });
-            }
+            expect(position).toEqual({ x: -1, y: -1 });
         });
 
-        test('should throw an error on unknown player id', () => {
-            expect( () => game.getPosition('i do not exist')).toThrow('unknown player with ID: "i do not exist"');
+        test('when looking for a player that does not exist', () => {
+            expect(() => game.getPosition('whatever')).toThrowError();
+        });
+    });
+
+    describe('getPerformance', () => {
+        test('default', () => {
+            const performance = game.getPerformance(firstPlayer.id);
+
+            expect(performance).toEqual({ depth: 0, duration: 0 });
+        });
+
+        test('when looking for a player that does not exist', () => {
+            expect(() => game.getPerformance('whatever')).toThrowError();
+        });
+    });
+
+    describe('reset', () => {
+        test('default', () => {
+            const status = game.reset();
+
+            expect(status).toEqual(GAME_STATUS.CLEAR);
+            expect(game.grid.isEmpty()).toBeTruthy();
+
+            for (const player of [firstPlayer, secondPlayer]) {
+                expect(player.destroy).toHaveBeenCalledTimes(1);
+                expect(game.isDead(player.id)).toBeFalsy();
+                expect(game.getPosition(player.id)).toEqual({ x: -1, y: -1 });
+                expect(game.getPerformance(player.id)).toEqual({ depth: 0, duration: 0 });
+            }
         });
     });
 
     describe('start', () => {
-        let game: Game;
+        test('default', async () => {
+            firstPlayer.boot.mockImplementationOnce(() => Promise.resolve());
+            secondPlayer.boot.mockImplementationOnce(() => Promise.resolve());
 
-        const mockBot1: TypeMoq.IMock<Player> = TypeMoq.Mock.ofType<Player>();
-        const mockBot2: TypeMoq.IMock<Player> = TypeMoq.Mock.ofType<Player>();
+            const state = await game.start();
+            await FlushPromises();
 
-        beforeEach(() => {
-            mockBot1.reset();
-            mockBot2.reset();
+            expect(state).toEqual(GAME_STATUS.RUNNING);
+            expect(game.grid.isEmpty()).toBeFalsy();
+            const positions: { [p: string]: boolean } = {};
+            for (const player of [firstPlayer, secondPlayer]) {
+                expect(player.boot).toHaveBeenCalledTimes(1);
+                expect(player.boot).toHaveBeenCalledWith(expect.any(String));
 
-            // Mock new Bot instantiation
-            mockBot.mockImplementationOnce(() => (mockBot1.object as any));
-            mockBot.mockImplementationOnce(() => (mockBot2.object as any));
+                const position = game.getPosition(player.id);
+                const key = `${position.x}${position.y}`;
+                expect(positions[key]).toBeUndefined();
+                positions[key] = true;
 
-            game = new Game(15, 15);
+                expect(position).toEqual(expect.objectContaining({
+                    x: expect.any(Number),
+                    y: expect.any(Number),
+                }));
+            }
         });
 
+        test('when a player fails to boot', () => {
+            firstPlayer.boot.mockImplementationOnce(() => Promise.resolve());
+            secondPlayer.boot.mockImplementationOnce(() => Promise.reject());
 
-        test('should boot all bots', () => {
-            mockBot1.setup((m) => m.boot(TypeMoq.It.isAny())).returns(() => new Promise((r) => r()));
-            mockBot2.setup((m) => m.boot(TypeMoq.It.isAny())).returns(() => new Promise((r) => r()));
-
-            return game.start().then(() => {
-                mockBot1.verify((m) => m.boot(TypeMoq.It.isAny()), TypeMoq.Times.atLeastOnce());
-                mockBot2.verify((m) => m.boot(TypeMoq.It.isAny()), TypeMoq.Times.atLeastOnce());
-            });
+            return expect(game.start()).rejects.toEqual(expect.any(Error));
         });
 
-        test('should reject with an error if game has already been started', () => {
+        test('when the game has already been started', async () => {
+            firstPlayer.boot.mockImplementationOnce(() => Promise.resolve());
+            secondPlayer.boot.mockImplementationOnce(() => Promise.resolve());
 
-            mockBot1.setup((m) => m.boot(TypeMoq.It.isAny())).returns(() => new Promise((r) => r()));
-            mockBot2.setup((m) => m.boot(TypeMoq.It.isAny())).returns(() => new Promise((r) => r()));
+            await game.start();
+            await FlushPromises();
 
-            return game.start().then(() => {
-                return game.start().catch((e) => {
-                   expect(e).toEqual(Error('can not start a game that has already started'));
-                });
-            });
+            return expect(game.start()).rejects.toEqual(expect.any(Error));
         });
     });
-
     describe('tick', () => {
-        let game: Game;
+        let firstPlayerAct: ActFunc;
+        let secondPlayerAct: ActFunc;
 
-        const mockBot1: TypeMoq.IMock<Player> = TypeMoq.Mock.ofType<Player>();
-        const mockBot2: TypeMoq.IMock<Player> = TypeMoq.Mock.ofType<Player>();
-
-        beforeEach(() => {
-            // Mock new Bot instantiation
-            mockBot.mockImplementationOnce(() => (mockBot1.object as any));
-            mockBot.mockImplementationOnce(() => (mockBot2.object as any));
-
-            game = new Game(15, 15, 200);
-        });
-
-        test('should request action from each player', async () => {
+        beforeEach(async () => {
+            firstPlayer.boot.mockImplementation(() => Promise.resolve());
+            secondPlayer.boot.mockImplementation(() => Promise.resolve());
 
             await game.start();
+            await FlushPromises();
 
-            mockBot1.reset();
-            mockBot1.setup((m) => m.isIdle()).returns(() => true);
-
-            mockBot2.reset();
-            mockBot2.setup((m) => m.isIdle()).returns(() => true);
-
-            const state = await game.tick();
-
-            mockBot1.verify((m) => m.requestAction(
-                TypeMoq.It.isAnyString(), TypeMoq.It.isAny(), TypeMoq.It.isAny(), TypeMoq.It.isAny(),
-            ), TypeMoq.Times.exactly(1));
-
-            mockBot2.verify((m) => m.requestAction(
-                TypeMoq.It.isAnyString(), TypeMoq.It.isAny(), TypeMoq.It.isAny(), TypeMoq.It.isAny(),
-            ), TypeMoq.Times.exactly(1));
-
-            expect(state).toMatch(new RegExp(`${GAME_STATUS.RUNNING}|${GAME_STATUS.FINISHED}`));
-        });
-
-        test('should reboot non idle bots at the end of turn', async () => {
-            await game.start();
-
-            mockBot1.reset();
-            mockBot1.setup((m) => m.isIdle()).returns(() => true);
-
-            mockBot2.reset();
-            mockBot2.setup((m) => m.isIdle()).returns(() => false);
-
-            const state = await game.tick();
-
-            mockBot1.verify((m) => m.boot(TypeMoq.It.isAnyString()), TypeMoq.Times.exactly(0));
-            mockBot2.verify((m) => m.boot(TypeMoq.It.isAnyString()), TypeMoq.Times.exactly(1));
-
-            expect(state).toMatch(new RegExp(`${GAME_STATUS.RUNNING}|${GAME_STATUS.FINISHED}`));
-        });
-
-        test('should not throw an error if a player is out of sync', async () => {
-            await game.start();
-
-            mockBot1.reset();
-            mockBot1.setup((m) => m.isIdle()).returns(() => true);
-
-            mockBot2.reset();
-            mockBot2.setup((m) => m.isIdle()).returns(() => true);
-            mockBot2.setup((m) => m.requestAction(
-                TypeMoq.It.isAnyString(), TypeMoq.It.isAny(), TypeMoq.It.isAny(), TypeMoq.It.isAny()),
-            ).returns((corr, pos, grid, act) => {
-                act('unknown correlation ID', MOVE.FORWARD);
+            firstPlayer.requestAction.mockImplementationOnce((_, __, ___, act) => {
+                firstPlayerAct = act;
             });
+            secondPlayer.requestAction.mockImplementationOnce((_, __, ___, act) => {
+                secondPlayerAct = act;
+            });
+        });
+
+        test('default', async () => {
+            firstPlayer.isIdle.mockImplementationOnce(() => true);
+            secondPlayer.isIdle.mockImplementationOnce(() => true);
 
             const state = await game.tick();
 
-            expect(state).toMatch(new RegExp(`${GAME_STATUS.RUNNING}|${GAME_STATUS.FINISHED}`));
+            expect(state).toEqual(GAME_STATUS.RUNNING);
+            expect(firstPlayer.requestAction).toHaveBeenCalledTimes(1);
+            expect(secondPlayer.requestAction).toHaveBeenCalledTimes(1);
+            expect(firstPlayer.requestAction)
+              .toHaveBeenCalledWith(expect.any(String), anything, expect.any(Grid), anything);
+            expect(secondPlayer.requestAction)
+              .toHaveBeenCalledWith(expect.any(String), anything, expect.any(Grid), anything);
+            expect(firstPlayer.isIdle).toHaveBeenCalledTimes(1);
+            expect(secondPlayer.isIdle).toHaveBeenCalledTimes(1);
         });
 
-        test('should reject with an error if game has not been started', () => {
-            return game.tick().catch((e) => {
-                expect(e).toEqual(Error('can not tick a game that has not been started'));
-            });
+        test('when a player is not idle at the end of turn', async () => {
+            firstPlayer.boot.mockClear();
+            secondPlayer.boot.mockClear();
+
+            firstPlayer.isIdle.mockImplementationOnce(() => true);
+            firstPlayer.boot.mockImplementationOnce(() => Promise.resolve());
+            secondPlayer.isIdle.mockImplementationOnce(() => false);
+
+            await game.tick();
+
+            expect(firstPlayer.boot).toHaveBeenCalledTimes(0);
+            expect(secondPlayer.boot).toHaveBeenCalledTimes(1);
+            expect(secondPlayer.boot).toHaveBeenCalledWith(expect.any(String));
         });
     });
 });

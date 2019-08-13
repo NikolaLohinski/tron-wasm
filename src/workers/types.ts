@@ -1,8 +1,8 @@
 import {UUID, Position} from '@/common/types';
-import {PLAYER_TYPE, MOVE} from '@/common/constants';
-import {Grid} from '@/engine/Grid';
+import {MOVE} from '@/common/constants';
+import Grid from '@/engine/Grid';
 
-export const enum NATIVE_WORKER_MESSAGE_TYPE {
+export const enum NATIVE_WORKER_TYPE {
     MESSAGE = 'message',
     ERROR = 'error',
 }
@@ -23,8 +23,7 @@ interface WBaseMessage {
 
 export interface WBootMessage extends WBaseMessage {
     type: MESSAGE_TYPE.BOOT;
-    playerType: PLAYER_TYPE;
-    depth?: number;
+    parameters: any;
 }
 
 export interface WErrorMessage extends WBaseMessage {
@@ -43,10 +42,8 @@ export interface WRequestMessage extends WBaseMessage {
 export interface WResultMessage extends WBaseMessage {
     type: MESSAGE_TYPE.RESULT;
     origin: MESSAGE_TYPE.REQUEST;
-    content: {
-        depth: number,
-        move: MOVE,
-    };
+    depth: number;
+    move: MOVE;
 }
 
 export interface WIdleMessage extends WBaseMessage {
@@ -62,7 +59,8 @@ export interface WEvent extends MessageEvent {
 
 export interface IWorker {
     postMessage(message: WBootMessage | WRequestMessage): void;
-    addEventListener(type: NATIVE_WORKER_MESSAGE_TYPE, callback: (event: WEvent) => void): void;
+    addEventListener(type: NATIVE_WORKER_TYPE, callback: (event: WEvent) => void): void;
+    removeEventListener(type: NATIVE_WORKER_TYPE, callback: (event: WEvent) => void): void;
     terminate(): void;
 }
 

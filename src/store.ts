@@ -1,41 +1,34 @@
 import Vue from 'vue';
 import Vuex from 'vuex';
-import Game from '@/engine/Game';
 import {
-  Color,
-  GameMetadata,
-  PlayerMetadata,
-  PlayerPerformance,
+  Color, Performance,
   Position,
+  Protagonist,
   Simulation,
   UUID,
 } from '@/common/types';
-import {randomColor, randomName} from '@/common/functions';
 import {GAME_STATUS, PLAYER_TYPE} from '@/common/constants';
+import Game from '@/engine/Game';
+import {generateUUID, randomColor, randomName} from '@/common/functions';
+import Bot from '@/engine/Bot';
 
 Vue.use(Vuex);
 
 interface StateOfMutation {
-  gameMetadata: GameMetadata;
   simulation: Simulation;
-  game: Game;
-  status: GAME_STATUS;
-  ids: UUID[];
-  metadata: { [id: string]: PlayerMetadata };
-  performances: { [id: string]: { depth: number, duration: number } };
-  positions: { [id: string]: Position };
+  game: {
+    instance: Game,
+    status: GAME_STATUS,
+  };
+  protagonists: { [id: string]: Protagonist };
 }
 
 interface Getters {
   paused: boolean;
-  autoRestartMs: number;
+  simulation: Simulation;
   game: Game;
-  gameMetadata: GameMetadata;
   status: GAME_STATUS;
-  ids: UUID[];
-  metadata: { [id: string]: PlayerMetadata };
-  performances: { [id: string]: PlayerPerformance };
-  positions: { [id: string]: Position };
+  protagonists: { [id: string]: Protagonist };
 }
 
 interface StateOfAction {
@@ -46,112 +39,128 @@ interface StateOfAction {
 
 export default new Vuex.Store({
   state: {
-    gameMetadata: {
-      gridX: 10,
-      gridY: 15,
-      turnTimeoutMs: 100,
-      playersConstructors: [
-        {type: PLAYER_TYPE.TS, depth: 5},
-        {type: PLAYER_TYPE.TS, depth: 8},
-        {type: PLAYER_TYPE.RUST},
-      ],
+    protagonists: {},
+    game: {
+      status: Game.INIT_GAME_STATUS,
+      instance: undefined as any,
     },
     simulation: {
-      autoRestartMs: 1000,
       paused: false,
+      turnTimeout: 100,
+      participants: [
+        [PLAYER_TYPE.TS, { depth: 3 }],
+        [PLAYER_TYPE.TS, { depth: 5 }],
+        [PLAYER_TYPE.RUST, { depth: 5 }],
+      ],
+      grid: {
+        sizeX: 15,
+        sizeY: 15,
+      },
     },
-    game: undefined as any,
-    status: undefined as any,
-    ids: [],
-    metadata: {},
-    performances: {},
-    positions: {},
   } as StateOfMutation,
   getters: {
     paused(state: StateOfMutation): boolean {
       return state.simulation.paused;
     },
-    autoRestartMs(state: StateOfMutation): number {
-      return state.simulation.autoRestartMs;
+    simulation(state: StateOfMutation): Simulation {
+      return state.simulation;
     },
     game(state: StateOfMutation): Game {
-      return state.game;
-    },
-    gameMetadata(state: StateOfMutation): GameMetadata {
-      return state.gameMetadata;
+      return state.game.instance;
     },
     status(state: StateOfMutation): GAME_STATUS {
-      return state.status;
+      return state.game.status;
     },
-    ids(state: StateOfMutation): UUID[] {
-      return state.ids;
-    },
-    metadata(state: StateOfMutation): { [id: string]: PlayerMetadata } {
-      return state.metadata;
-    },
-    performances(state: StateOfMutation): { [id: string]: PlayerPerformance } {
-      return state.performances;
-    },
-    positions(state: StateOfMutation): { [id: string]: Position } {
-      return state.positions;
+    protagonists(state: StateOfMutation): { [id: string]: Protagonist } {
+      return state.protagonists;
     },
   },
   mutations: {
-    gameMetadata(state: StateOfMutation, metadata: GameMetadata): void {
-      state.gameMetadata = metadata;
-    },
-    game(state: StateOfMutation, game: Game): void {
-      state.game = game;
-    },
-    status(state: StateOfMutation, status: GAME_STATUS): void {
-      state.status = status;
-    },
-    ids(state: StateOfMutation, ids: string[]): void {
-      state.ids = ids;
-      state.metadata = ids.reduce((allMetadata: { [id: string]: PlayerMetadata }, id: UUID, index: number) => {
-        let color: Color;
-        let name: string;
-        do {
-          color = randomColor();
-          name = randomName();
-        } while (Object.values(allMetadata).some((p): boolean => {
-          return p.name === name || p.color === color;
-        }));
-        return {
-          ...allMetadata,
-          [id]: {
-            id,
-            color,
-            name,
-            alive: true,
-            depth: state.gameMetadata.playersConstructors[index].depth,
-            type: state.gameMetadata.playersConstructors[index].type,
-          },
-        };
-      }, {});
-    },
-    position(state: StateOfMutation, {id, position}: { id: UUID, position: Position }): void {
-      Vue.set(state.positions, id, position);
-    },
-    performance(state: StateOfMutation, {id, performance}: { id: UUID, performance: PlayerPerformance }): void {
-      Vue.set(state.performances, id, performance);
-    },
-    kill(state: StateOfMutation, id: UUID): void {
-      const metadata = state.metadata[id];
-      metadata.alive = false;
-      Vue.set(state.metadata, id, metadata);
-    },
-    reviveAll(state: StateOfMutation): void {
-      Object.entries(state.metadata).forEach(([userID, metadata]: [UUID, PlayerMetadata]) => {
-        metadata.alive = true;
-        Vue.set(state.metadata, userID, metadata);
-      });
+    protagonists(state: StateOfMutation, protagonists: { [id: string]: Protagonist }): void {
+      Vue.set(state, 'protagonists', protagonists);
     },
     paused(state: StateOfMutation, pause: boolean): void {
       Vue.set(state.simulation, 'paused', pause);
     },
+    game(state: StateOfMutation, game: Game): void {
+      state.game.instance = game;
+      state.game.status = Game.INIT_GAME_STATUS;
+    },
+    status(state: StateOfMutation, status: GAME_STATUS): void {
+      state.game.status = status;
+    },
+    position(state: StateOfMutation, {id, position}: { id: UUID, position: Position }): void {
+      const protagonist = state.protagonists[id];
+      protagonist.position = position;
+      Vue.set(state.protagonists, id, protagonist);
+    },
+    performance(state: StateOfMutation, {id, performance}: { id: UUID, performance: Performance }): void {
+      const protagonist = state.protagonists[id];
+      protagonist.performance = performance;
+      Vue.set(state.protagonists, id, protagonist);
+    },
+    kill(state: StateOfMutation, id: UUID): void {
+      const protagonist = state.protagonists[id];
+      protagonist.alive = false;
+      Vue.set(state.protagonists, id, protagonist);
+    },
+    reviveAll(state: StateOfMutation): void {
+      Object.entries(state.protagonists).forEach(([id, protagonist]: [UUID, Protagonist]) => {
+        protagonist.alive = true;
+        Vue.set(state.protagonists, id, protagonist);
+      });
+    },
   },
   actions: {
+    generate(state: StateOfAction): Promise<void> {
+      return new Promise((resolve) => {
+        const simulation = state.getters.simulation;
+
+        const protagonists: { [id: string]: Protagonist } = {};
+        for (const constructor of simulation.participants) {
+          const bot = new Bot(generateUUID(), constructor[0], constructor[1]);
+          const id = bot.id;
+          const type = bot.type;
+          let color: Color;
+          let name: string;
+          const position: Position = {
+            x: -1,
+            y: -1,
+          };
+          do {
+            name = randomName();
+            color = randomColor();
+          } while (Object.values(protagonists).some((p: any): boolean => {
+            return p.name === name || p.color === color;
+          }));
+          protagonists[bot.id] = {
+            name,
+            id,
+            color,
+            type,
+            position,
+            alive: true,
+            player: bot,
+            performance: {
+              depth: 0,
+              duration: 0,
+            },
+          };
+        }
+        state.commit('protagonists', protagonists);
+
+        const players = Object.values(protagonists).map((p) => p.player);
+        const g = new Game(
+          simulation.grid.sizeX,
+          simulation.grid.sizeY,
+          simulation.turnTimeout,
+          players,
+        );
+        state.commit('game', g);
+
+        resolve();
+      });
+    },
     pause(state: StateOfAction, pause: boolean): Promise<void> {
       return new Promise((resolve) => {
         const run = !pause && state.getters.paused;
@@ -163,102 +172,90 @@ export default new Vuex.Store({
         }
       });
     },
-    run(state: StateOfAction): Promise<void> {
-      return new Promise((resolve) => {
-        if (state.getters.paused) {
-          return resolve();
-        } else {
-          let handler: (state: any, run: () => Promise<void>) => Promise<void>;
-          switch (state.getters.status) {
-            case GAME_STATUS.CLEAR:
-              handler = handleClearStatus;
-              break;
-            case GAME_STATUS.FINISHED:
-              handler = handleFinishedStatus;
-              break;
-            case GAME_STATUS.RUNNING:
-              handler = handleRunningStatus;
-              break;
-            default:
-              throw Error(`unknown game status ${state.getters.status}`);
-          }
-          return handler(state, () => state.dispatch('run')).then(resolve);
-        }
-      });
-    },
     start(state: StateOfAction, newGame?: boolean): Promise<void> {
       return new Promise((resolve) => {
         state.dispatch('pause', true).then(() => {
-          const metadata = state.getters.gameMetadata;
+          const simulation = state.getters.simulation;
           setTimeout(() => {
+            state.commit('reviveAll');
             if (newGame) {
-              const g = new Game(metadata.gridX, metadata.gridY, metadata.turnTimeoutMs, metadata.playersConstructors);
-              state.commit('game', g);
-              state.commit('status', Game.INIT_GAME_STATUS);
-              state.commit('ids', g.getPlayersIDs());
+              state.dispatch('generate').then(() => {
+                state.dispatch('pause', false).then(() => {
+                  state.dispatch('run').then(resolve);
+                });
+              });
             } else {
-              state.commit('reviveAll');
               state.commit('status', state.getters.game.reset());
-            }
-            if (state.getters.autoRestartMs < 0) {
-              state.dispatch('run').then(resolve);
-            } else {
               state.dispatch('pause', false).then(() => {
                 state.dispatch('run').then(resolve);
               });
             }
-          }, metadata.turnTimeoutMs);
+          }, simulation.turnTimeout);
         });
+      });
+    },
+    run(state: StateOfAction): Promise<void> {
+      return new Promise((resolve) => {5;
+                                       if (state.getters.paused) {
+          resolve();
+          return;
+        } else {
+          switch (state.getters.status) {
+            case GAME_STATUS.CLEAR:
+              state.dispatch('clear').then(resolve);
+              return;
+            case GAME_STATUS.FINISHED:
+              state.dispatch('finish').then(resolve);
+              return;
+            case GAME_STATUS.RUNNING:
+              state.dispatch('continue').then(resolve);
+              return;
+            default:
+              throw Error(`unknown game status ${state.getters.status}`);
+          }
+        }
+      });
+    },
+    clear(state: StateOfAction): Promise<void> {
+      return new Promise((resolve) => {
+        state.getters.game.start().then((status: GAME_STATUS | Error) => {
+            state.commit('status', status);
+            state.dispatch('run').then(resolve);
+          });
+      });
+    },
+    finish(state: StateOfAction): Promise<void> {
+      return new Promise((resolve) => {
+        state.commit('status', GAME_STATUS.FINISHED);
+        state.commit('paused', true);
+
+        setTimeout(() => {
+          const resetStatus = state.getters.game.reset();
+          state.commit('status', resetStatus);
+
+          state.commit('reviveAll');
+          state.commit('paused', false);
+
+          state.dispatch('run').then(resolve);
+        }, 1000);
+      });
+    },
+    continue(state: StateOfAction): Promise<void> {
+      return new Promise((resolve) => {
+        state.getters.game.tick().then((status: GAME_STATUS | Error) => {
+            state.commit('status', status);
+            Object.entries(state.getters.protagonists).forEach(([id, p]: [UUID, Protagonist]) => {
+              if (state.getters.game.isDead(id) && state.getters.protagonists[id].alive) {
+                state.commit('kill', id);
+              }
+              const userPosition = state.getters.game.getPosition(id);
+              state.commit('position', {id, position: userPosition});
+              const userPerformance = state.getters.game.getPerformance(id);
+              state.commit('performance', {id, performance: userPerformance});
+            });
+            state.dispatch('run').then(resolve);
+          });
       });
     },
   },
 });
-
-function handleClearStatus(state: StateOfAction, run: () => Promise<void>): Promise<void> {
-  return state.getters.game.start()
-    .then((status: GAME_STATUS | Error) => {
-      state.commit('status', status);
-      return run();
-    });
-}
-
-function handleFinishedStatus(state: StateOfAction, run: () => Promise<void>): Promise<void> {
-  return new Promise((resolve) => {
-    state.commit('status', GAME_STATUS.FINISHED);
-    state.commit('paused', true);
-    if (state.getters.autoRestartMs < 0) {
-      return resolve();
-    }
-    setTimeout(() => {
-      const resetStatus = state.getters.game.reset();
-      state.commit('status', resetStatus);
-
-      state.commit('reviveAll');
-      state.commit('paused', false);
-
-      run().then(resolve);
-    }, state.getters.autoRestartMs);
-  });
-}
-
-function handleRunningStatus(state: StateOfAction, run: () => Promise<void>): Promise<void> {
-  return state.getters.game.tick()
-    .then((status: GAME_STATUS | Error) => {
-      state.commit('status', status);
-
-      state.getters.ids.forEach((userID: UUID) => {
-        if (state.getters.game.isDead(userID) && state.getters.metadata[userID].alive) {
-          state.commit('kill', userID);
-        }
-
-        state.commit('performance', {
-          id: userID,
-          performance: state.getters.game.getPerformance(userID),
-        });
-
-        const userPosition = state.getters.game.getPosition(userID);
-        state.commit('position', {id: userID, position: userPosition});
-      });
-      return run();
-    });
-}

@@ -1,139 +1,163 @@
+declare var TYPESCRIPT_BOT_WORKER: string;
+declare var RUST_BOT_WORKER: string;
+
 import {
-    IWorker,
-    MESSAGE_TYPE,
-    NATIVE_WORKER_MESSAGE_TYPE,
-    WBootMessage,
-    WEvent,
-    WMessage,
-    WRequestMessage,
-    WResultMessage,
-} from '@/workers/bot/types';
+  IWorker,
+  MESSAGE_TYPE,
+  NATIVE_WORKER_TYPE,
+  WBootMessage,
+  WEvent,
+  WMessage,
+  WRequestMessage,
+  WResultMessage,
+} from '@/workers/types';
 import {ActFunc, Position, UUID} from '@/common/types';
 import {generateUUID} from '@/common/functions';
 import {Player} from '@/common/interfaces';
-import {PLAYER_TYPE, MOVE} from '@/common/constants';
-import {Grid} from '@/engine/Grid';
-
-export const BOOT_TIMEOUT_MS = 2000;
+import {PLAYER_TYPE} from '@/common/constants';
+import Grid from '@/engine/Grid';
 
 export default class Bot implements Player {
-    private worker: IWorker;
+  public static BOOT_TIMEOUT_MS = 2000;
 
-    private bootResolver?: () => void;
-    private actFunction?: (correlationID: UUID, content: {move: MOVE, depth: number}) => void;
-    private readonly id: UUID;
-    private workerID: UUID = '';
-    private readonly playerType: PLAYER_TYPE;
-    private readonly depth?: number;
-    private bootTimeout: number;
-    private idle: boolean;
+  public readonly id: UUID;
+  public readonly type: PLAYER_TYPE;
+  public readonly parameters?: any;
 
-    constructor(id: UUID, playerType: PLAYER_TYPE, depth?: number) {
-        this.id = id;
-        this.worker = new Worker('bot.worker.js');
-        this.bootTimeout = -1;
-        this.playerType = playerType;
-        this.depth = depth;
-        this.idle = false;
+  private worker?: IWorker;
+  private actFunction?: ActFunc;
+  private workerID: UUID = '';
+  private idle: boolean;
+
+  constructor(id: UUID, type: PLAYER_TYPE, parameters?: any) {
+    this.id = id;
+    this.type = type;
+    this.parameters = parameters ? parameters : {};
+    this.idle = false;
+  }
+
+  public boot(correlationID: UUID): Promise<void> {
+    if (this.worker) {
+      this.worker.terminate();
+    }
+    return new Promise((onSuccess, onFailure) => {
+      this.workerID = generateUUID();
+
+      switch (this.type) {
+        case PLAYER_TYPE.TS:
+          this.worker = new Worker(TYPESCRIPT_BOT_WORKER);
+          break;
+        case PLAYER_TYPE.RUST:
+          this.worker = new Worker(RUST_BOT_WORKER);
+          break;
+        default:
+          throw Error(`unknown player type "${this.type}"`);
+      }
+
+      this.configureWorker(onSuccess, onFailure);
+
+      const bootMessage: WBootMessage = {
+        workerID: this.workerID,
+        correlationID,
+        type: MESSAGE_TYPE.BOOT,
+        parameters: this.parameters,
+      };
+      this.worker.postMessage(bootMessage);
+    });
+  }
+
+  public isIdle(): boolean {
+    return this.idle;
+  }
+
+  public requestAction(corr: UUID, position: Position, grid: Grid, act: ActFunc): void {
+    if (!this.idle) {
+      throw Error('can not request action of a bot that is not idle');
+    }
+    if (!this.worker) {
+      throw Error('bot has not been booted');
     }
 
-    public boot(correlationID: UUID): Promise<void> {
-        this.worker.terminate();
-        return new Promise((resolveBoot, reject) => {
-            this.worker = new Worker('bot.worker.js');
+    this.actFunction = act;
 
-            this.worker.addEventListener(NATIVE_WORKER_MESSAGE_TYPE.MESSAGE, this.handleWEvent.bind(this));
-            this.worker.addEventListener(NATIVE_WORKER_MESSAGE_TYPE.ERROR, this.handleFatalWError.bind(this));
+    const requestMessage: WRequestMessage = {
+      type: MESSAGE_TYPE.REQUEST,
+      workerID: this.workerID,
+      correlationID: corr,
+      userID: this.id,
+      position,
+      grid,
+    };
+    this.worker.postMessage(requestMessage);
+    this.idle = false;
+  }
 
-            this.bootResolver = () => {
-                clearTimeout(this.bootTimeout);
-                resolveBoot();
-                this.bootResolver = undefined;
-            };
-
-            this.workerID = generateUUID();
-
-            const bootMessage: WBootMessage = {
-                workerID: this.workerID,
-                correlationID,
-                type: MESSAGE_TYPE.BOOT,
-                playerType: this.playerType,
-                depth: this.depth,
-            };
-
-            this.worker.postMessage(bootMessage);
-
-            this.bootTimeout = setTimeout(() => {
-                reject(`boot timeout after ${BOOT_TIMEOUT_MS} ms`);
-            }, BOOT_TIMEOUT_MS) as any;
-        });
+  public destroy(): void {
+    if (!this.worker) {
+      throw Error('bot has not been booted');
     }
+    this.worker.terminate();
+    this.idle = false;
+  }
 
-    public isIdle(): boolean {
-        return this.idle;
-    }
+  private handleWEvent(event: WEvent): void {
+    const message: WMessage = event.data;
 
-    public requestAction(corr: UUID, position: Position, grid: Grid, act: ActFunc): void {
-        if (!this.idle) {
-            throw Error('can not request action of rs-bot that is not idle');
+    switch (message.type) {
+      case MESSAGE_TYPE.IDLE:
+        if (message.origin === MESSAGE_TYPE.BOOT) {
+          throw Error('can not handle events on not booted worker');
         }
+        this.idle = true;
+        break;
+      case MESSAGE_TYPE.RESULT:
+        const resultMessage = message as WResultMessage;
+        (this.actFunction as any)(message.correlationID, resultMessage.move, resultMessage.depth);
+        break;
+      case MESSAGE_TYPE.ERROR:
+        throw Error(`worker "${message.workerID}" error`);
+      default:
+        throw TypeError(`unhandled message type "${message.type}"`);
+    }
+  }
 
-        this.actFunction = act;
+  private handleFatalWError(event: WEvent): void {
+    // tslint:disable-next-line
+    console.error('[MAIN]: fatal worker error', event);
+    this.destroy();
+    throw Error('fatal worker error');
+  }
 
-        const requestMessage: WRequestMessage = {
-            type: MESSAGE_TYPE.REQUEST,
-            workerID: this.workerID,
-            correlationID: corr,
-            userID: this.id,
-            position,
-            grid,
-        };
-
-        this.worker.postMessage(requestMessage);
-        this.idle = false;
+  private configureWorker(bootSuccess: () => void, bootFailure: (failure: any) => void): void {
+    if (!this.worker) {
+      throw Error('worker was not created');
     }
 
-    public destroy(): void {
-        this.worker.terminate();
-        this.idle = false;
+    const self = this;
+    const bootTimeout = setTimeout(() => {
+      bootFailure(`boot timeout after ${Bot.BOOT_TIMEOUT_MS} ms`);
+    }, Bot.BOOT_TIMEOUT_MS);
+
+    function resolveBoot(event: WEvent) {
+      const message: WMessage = event.data;
+      if ((message.type) !== MESSAGE_TYPE.IDLE) {
+        throw Error('unexpected boot response');
+      }
+
+      clearTimeout(bootTimeout);
+
+      self.idle = true;
+      if (!self.worker) {
+        throw Error('worker was destroyed during boot');
+      }
+
+      self.worker.addEventListener(NATIVE_WORKER_TYPE.MESSAGE, self.handleWEvent.bind(self));
+      self.worker.removeEventListener(NATIVE_WORKER_TYPE.MESSAGE, resolveBoot);
+
+      bootSuccess();
     }
 
-    private handleWEvent(event: WEvent): void {
-        const message: WMessage = event.data;
-
-        switch (message.type) {
-            case MESSAGE_TYPE.IDLE:
-                // tslint:disable-next-line
-                // console.log(`[BOT]: worker ${this.workerID} is idle`);
-                if (message.origin === MESSAGE_TYPE.BOOT) {
-                    if (!this.bootResolver) {
-                        throw Error('can not handle events on not booted worker');
-                    }
-                    (this.bootResolver as any)();
-                }
-                this.idle = true;
-                break;
-            case MESSAGE_TYPE.RESULT:
-                const resultMessage = message as WResultMessage;
-                // tslint:disable-next-line
-                // console.log(`[BOT]: worker ${this.workerID} moved`, message.content);
-                (this.actFunction as any)(message.correlationID, resultMessage.content);
-                break;
-            case MESSAGE_TYPE.ERROR:
-                // tslint:disable-next-line
-                console.error(`[BOT]: worker ${this.workerID} responded with an error`, message.error);
-                throw Error(`worker "${message.workerID}" error`);
-            default:
-                // tslint:disable-next-line
-                console.error(`[BOT]: worker ${this.workerID} can not handled message of type`, message.type);
-                throw TypeError(`unhandled message type "${message.type}"`);
-        }
-    }
-
-    private handleFatalWError(event: WEvent): void {
-        // tslint:disable-next-line
-        console.error('[MAIN]: fatal worker error', event);
-        this.destroy();
-        throw Error('fatal worker error');
-    }
+    this.worker.addEventListener(NATIVE_WORKER_TYPE.ERROR, this.handleFatalWError.bind(this));
+    this.worker.addEventListener(NATIVE_WORKER_TYPE.MESSAGE, resolveBoot);
+  }
 }

@@ -6,24 +6,23 @@ import {
     WMessage,
     WResultMessage,
     WIdleMessage,
-} from '@/workers/bot/types';
+} from '@/workers/types';
 import {RegisterMoveFunc} from '@/common/types';
 
-import NewPlayer from '@/engine/PlayerFactory';
 import {AI} from '@/common/interfaces';
-import {Grid} from '@/engine/Grid';
+import Grid from '@/engine/Grid';
 
-export default class BotWorker {
+export default class Wrapper {
 
-    private ctx: IWorkerContext;
-    private player?: AI;
+    private readonly ctx: IWorkerContext;
+    private readonly player: AI;
 
-    constructor(ctx: IWorkerContext) {
+    constructor(ctx: IWorkerContext, player: AI) {
         this.ctx = ctx;
+        this.player = player;
     }
 
     public handleWEvent(event: WEvent) {
-        // tslint:disable-n
         const message: WMessage = event.data;
 
         this.handleWMessage(message)
@@ -33,14 +32,14 @@ export default class BotWorker {
                 }
             })
             .catch((e) => {
-                // tslint:disable-next-line
-                console.error(`[WORKER: ${message.workerID}]: error`, e);
                 const err: WErrorMessage = {
                     workerID: message.workerID,
                     correlationID: message.correlationID,
                     type: MESSAGE_TYPE.ERROR,
                     error: e.toString(),
                 };
+                // tslint:disable-next-line
+                console.error(e);
                 this.ctx.postMessage(err);
         });
     }
@@ -49,38 +48,27 @@ export default class BotWorker {
         return new Promise((resolve) => {
             switch (message.type) {
                 case MESSAGE_TYPE.BOOT:
-                    // tslint:disable-next-line
-                    // console.log(`[WORKER: ${message.workerID}]: boot order received`, message);
-                    const register: RegisterMoveFunc = (correlationID, direction, depth) => {
+                    const register: RegisterMoveFunc = (correlationID, move, depth) => {
                         const result: WResultMessage = {
+                            correlationID,
                             type: MESSAGE_TYPE.RESULT,
                             workerID: message.workerID,
-                            correlationID,
                             origin: MESSAGE_TYPE.REQUEST,
-                            content: {
-                                depth,
-                                move: direction,
-                            },
+                            depth,
+                            move,
                         };
                         this.ctx.postMessage(result);
                     };
-                    NewPlayer(message.playerType, register.bind(this), message.depth)
-                        .then((player: AI) => {
-                            this.player = player;
-                            resolve({
-                                workerID: message.workerID,
-                                correlationID: message.correlationID,
-                                origin: MESSAGE_TYPE.BOOT,
-                                type: MESSAGE_TYPE.IDLE,
-                            });
+                    this.player.init(register, message.parameters).then(() => {
+                        resolve({
+                            workerID: message.workerID,
+                            correlationID: message.correlationID,
+                            origin: MESSAGE_TYPE.BOOT,
+                            type: MESSAGE_TYPE.IDLE,
                         });
+                    });
                     break;
                 case MESSAGE_TYPE.REQUEST:
-                    // tslint:disable-next-line
-                    // console.log(`[WORKER: ${message.workerID}]: request received`, message.content.position);
-                    if (!this.player) {
-                        throw Error('worker is not booted, can not process request message');
-                    }
                     this.player.play({
                         correlationID: message.correlationID,
                         userID: message.userID,

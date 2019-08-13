@@ -1,279 +1,173 @@
-import * as TypeMoq from 'typemoq';
+import {anything, ClearMockMethods, FlushPromises} from './utils';
 
+import {MESSAGE_TYPE, NATIVE_WORKER_TYPE, WEvent} from '@/workers/types';
 import {Position, UUID} from '@/common/types';
-import {PLAYER_TYPE, MOVE} from '@/common/constants';
-
-import {Grid} from '@/engine/Grid';
-
-import {
-    MESSAGE_TYPE,
-    NATIVE_WORKER_MESSAGE_TYPE,
-    WBootMessage,
-    WEvent,
-    WRequestMessage,
-    WResultMessage,
-    WIdleMessage,
-    WErrorMessage, IWorker,
-} from '@/workers/bot/types';
+import {MOVE, PLAYER_TYPE} from '@/common/constants';
+import Grid from '@/engine/Grid';
 
 import Bot from '@/engine/Bot';
-
 describe('Bot', () => {
-    const MockWorker: TypeMoq.IMock<IWorker> = TypeMoq.Mock.ofType<IWorker>();
-    const botID: UUID = '9951ec73-3a46-4ad1-86ed-5c2cd0788112';
-    const playerType = PLAYER_TYPE.TS;
 
-    let bot: Bot;
+  type EventListener =  (event: WEvent) => void;
 
-    beforeEach(() => {
-        MockWorker.reset();
-        // @ts-ignore
-        global.Worker = class { constructor() { return MockWorker.object; }};
+  const TYPESCRIPT_BOT_WORKER = 'TYPESCRIPT_BOT_WORKER';
+  const RUST_BOT_WORKER = 'RUST_BOT_WORKER';
+
+  const playerType = PLAYER_TYPE.TS;
+  const userID: UUID = '9951ec73-3a46-4ad1-86ed-5c2cd0788112';
+  const correlationID: UUID = 'd64385ef-17ed-4891-bb67-9273816be97f';
+
+  const worker = {
+    postMessage: jest.fn(),
+    addEventListener: jest.fn(),
+    removeEventListener: jest.fn(),
+    terminate: jest.fn(),
+  };
+
+  let bot: Bot;
+
+  beforeEach(() => {
+    ClearMockMethods(worker);
+    Object.assign(global, {
+      TYPESCRIPT_BOT_WORKER,
+      RUST_BOT_WORKER,
+      Worker: class { constructor() { return worker; }},
     });
 
-    describe('constructor', () => {
-        test('should initialize the underlying web worker', () => {
-            // tslint:disable-next-line
-            return expect(new Bot(botID, playerType)['worker']).toBeDefined();
-        });
+    bot = new Bot(userID, playerType);
+  });
+
+  describe('boot', () => {
+    test('default', async () => {
+      bot.boot(correlationID).then();
+
+      await FlushPromises();
+
+      expect(worker.addEventListener).toHaveBeenCalledTimes(2);
+      expect(worker.addEventListener).toHaveBeenNthCalledWith(1, NATIVE_WORKER_TYPE.ERROR, anything);
+      expect(worker.addEventListener).toHaveBeenNthCalledWith(2, NATIVE_WORKER_TYPE.MESSAGE, anything);
+
+      expect(worker.postMessage).toHaveBeenCalledTimes(1);
+      expect(worker.postMessage).toHaveBeenNthCalledWith(1, expect.objectContaining({
+        correlationID,
+        workerID: expect.any(String),
+        type: MESSAGE_TYPE.BOOT,
+      }));
+    });
+  });
+
+  describe('isIdle', () => {
+    test('default', () => {
+      expect(bot.isIdle()).toBeFalsy();
     });
 
-    describe('boot', () => {
-        const correlationID: UUID = 'd64385ef-17ed-4891-bb67-9273816be97f';
-
-        beforeEach(() => {
-            MockWorker.reset();
-
-            bot = new Bot(botID, playerType);
-        });
-
-        test('should eventually reboot worker, setup message handlers and send the a boot result', (done) => {
-            // First promise, on top of pile so it should be handled first
-            // This promise will never end since it resolves when worker responds
-            bot.boot(correlationID).then();
-
-            // Then we verify assertions
-            setTimeout(() => {
-                MockWorker.verify((m) => m.terminate(), TypeMoq.Times.once());
-
-                MockWorker.verify((m) => {
-                    return m.addEventListener(NATIVE_WORKER_MESSAGE_TYPE.MESSAGE, TypeMoq.It.isAny());
-                }, TypeMoq.Times.once());
-                MockWorker.verify((m) => {
-                    return m.addEventListener(NATIVE_WORKER_MESSAGE_TYPE.ERROR, TypeMoq.It.isAny());
-                }, TypeMoq.Times.once());
-                MockWorker.verify((m) => m.postMessage(TypeMoq.It.isAny()), TypeMoq.Times.once());
-
-                done();
-            }, 20);
-        });
-    });
-
-    describe('isIdle', () => {
-        beforeEach(() => {
-            bot = new Bot(botID, playerType);
-        });
-
-        test('should not be idle if not booted', () => {
-            expect(bot.isIdle()).toBeFalsy();
-        });
-
-        test('should be idle if it was booted and received an idle with origin boot', () => {
-            // tslint:disable-next-line
-            bot['bootResolver'] = () => { return; };
-            const returnedBootResponse: WIdleMessage = {
-                correlationID: expect.anything(),
-                workerID: expect.anything(),
+    test('default', async () => {
+      worker.addEventListener
+          .mockImplementationOnce(() => undefined) // Set ERROR handler
+          .mockImplementationOnce((_, listener: EventListener) => { // Set BOOT resolver
+            listener({
+              data: {
+                correlationID: anything,
+                workerID: anything,
                 type: MESSAGE_TYPE.IDLE,
                 origin: MESSAGE_TYPE.BOOT,
-            };
-            // tslint:disable-next-line
-            bot['handleWEvent']({ data: returnedBootResponse } as WEvent);
+              },
+            } as WEvent);
+          });
 
-            expect(bot.isIdle()).toBeTruthy();
+      await bot.boot(correlationID);
+      await FlushPromises();
+
+      expect(bot.isIdle()).toBeTruthy();
+    });
+  });
+
+  describe('requestAction', () => {
+    let position: Position;
+    let grid: Grid;
+
+    let botReactToWorkerMessage: EventListener;
+    const actFunction = jest.fn();
+
+    beforeEach(async () => {
+      worker.addEventListener
+        .mockImplementationOnce(() => undefined) // Set ERROR handler
+        .mockImplementationOnce((_, listener: EventListener) => { // Set BOOT resolver
+          listener({
+            data: {
+              correlationID: anything,
+              workerID: anything,
+              type: MESSAGE_TYPE.IDLE,
+              origin: MESSAGE_TYPE.BOOT,
+            },
+          } as WEvent);
+        })
+        .mockImplementationOnce((_, listener: EventListener) => { // Set MESSAGE handler
+          botReactToWorkerMessage = listener;
         });
 
-        test('should be idle if it was booted and received an idle with origin request', () => {
-            // tslint:disable-next-line
-            bot['bootResolver'] = () => { return; };
-            const returnedBootResponse: WIdleMessage = {
-                correlationID: expect.anything(),
-                workerID: expect.anything(),
-                type: MESSAGE_TYPE.IDLE,
-                origin: MESSAGE_TYPE.REQUEST,
-            };
-            // tslint:disable-next-line
-            bot['handleWEvent']({ data: returnedBootResponse } as WEvent);
+      await bot.boot(correlationID);
+      await FlushPromises();
 
-            expect(bot.isIdle()).toBeTruthy();
-        });
+      worker.postMessage.mockClear();
+      actFunction.mockClear();
+
+      position = { x: 0, y: 0 };
+      grid = new Grid(15, 15);
     });
 
-    describe('requestAction', () => {
-        const correlationID: UUID = 'd64385ef-17ed-4891-bb67-9273816be97f';
+    test('default', () => {
+      bot.requestAction(correlationID, position, grid, actFunction);
 
-        beforeEach(() => {
-            MockWorker.reset();
-
-            bot = new Bot(botID, playerType);
-
-            const returnedWMessage: WIdleMessage = {
-                workerID: expect.anything(),
-                correlationID,
-                type: MESSAGE_TYPE.IDLE,
-                origin: MESSAGE_TYPE.BOOT,
-            };
-            // tslint:disable-next-line
-            bot['bootResolver'] = () => { return; };
-            // tslint:disable-next-line
-            bot['handleWEvent']({ data: returnedWMessage } as WEvent);
-        });
-
-        test('should send request message with relevant data', () => {
-            const position: Position = 'this is a position' as any;
-            const grid: Grid = 'this is a grid' as any;
-            const actFunction: (id: UUID, content: {move: MOVE, depth: number}) => void = 'act function' as any;
-
-            const mockWorker = { postMessage: jest.fn() } as any;
-
-            // tslint:disable-next-line
-            bot['worker'] = mockWorker;
-
-            const expectedRequest: WRequestMessage = {
-                workerID: expect.anything(),
-                correlationID,
-                type: MESSAGE_TYPE.REQUEST,
-                position,
-                grid,
-                userID: botID,
-            };
-
-            bot.requestAction(correlationID, position, grid, actFunction);
-
-            expect(mockWorker.postMessage).toHaveBeenCalledTimes(1);
-            expect(mockWorker.postMessage).toHaveBeenCalledWith(expectedRequest);
-        });
+      expect(bot.isIdle()).toBeFalsy();
+      expect(worker.postMessage).toHaveBeenCalledTimes(1);
+      expect(worker.postMessage).toHaveBeenCalledWith(expect.objectContaining({
+        correlationID,
+        position,
+        grid,
+        userID,
+        workerID: expect.any(String),
+      }));
     });
 
-    describe('destroy', () => {
-       test('should terminate worker and stop being idle', () => {
-           bot = new Bot(botID, playerType);
+    test('when worker responds with a result', () => {
+      bot.requestAction(correlationID, position, grid, actFunction);
+      botReactToWorkerMessage({
+        data: {
+          correlationID,
+          type: MESSAGE_TYPE.RESULT,
+          origin: MESSAGE_TYPE.REQUEST,
+          depth: 2,
+          move: MOVE.FORWARD,
+        },
+      } as WEvent);
+      botReactToWorkerMessage({
+        data: {
+          correlationID,
+          type: MESSAGE_TYPE.RESULT,
+          origin: MESSAGE_TYPE.REQUEST,
+          depth: 3,
+          move: MOVE.STARBOARD,
+        },
+      } as WEvent);
+      expect(bot.isIdle()).toBeFalsy();
 
-           bot.destroy();
-
-           expect(bot.isIdle()).toBeFalsy();
-           MockWorker.verify((m) => m.terminate(), TypeMoq.Times.once());
-       });
+      expect(actFunction).toHaveBeenCalledTimes(2);
+      expect(actFunction).toHaveBeenCalledWith(correlationID, MOVE.FORWARD, 2);
+      expect(actFunction).toHaveBeenCalledWith(correlationID, MOVE.STARBOARD, 3);
     });
 
-    describe('[PRIVATE] handleWEvent', () => {
-        let bootResolved: boolean;
-        beforeEach(() => {
-            MockWorker.reset();
-
-            bot = new Bot(botID, playerType);
-
-            bootResolved = false;
-            // tslint:disable-next-line
-            bot['bootResolver'] = () => {
-                bootResolved = true;
-            };
-        });
-
-        test('should resolve boot on boot result message', () => {
-            const returnedWMessage: WIdleMessage = {
-                workerID: expect.anything(),
-                correlationID: 'd64385ef-17ed-4891-bb67-9273816be97f',
-                type: MESSAGE_TYPE.IDLE,
-                origin: MESSAGE_TYPE.BOOT,
-            };
-
-            // tslint:disable-next-line
-            bot['handleWEvent']({ data: returnedWMessage } as WEvent);
-
-            expect(bootResolved).toEqual(true);
-        });
-
-        test('should act on result message', () => {
-            const correlationID = 'd64385ef-17ed-4891-bb67-9273816be97f';
-            const returnedWMessage: WResultMessage = {
-                workerID: expect.anything(),
-                correlationID,
-                type: MESSAGE_TYPE.RESULT,
-                content: {
-                    depth: 42,
-                    move: MOVE.STARBOARD,
-                },
-                origin: MESSAGE_TYPE.REQUEST,
-            };
-
-            const mockActFunction = jest.fn();
-            // tslint:disable-next-line
-            bot['actFunction'] = mockActFunction;
-
-            // tslint:disable-next-line
-            bot['handleWEvent']({ data: returnedWMessage} as WEvent);
-
-            // tslint:disable-next-line
-            expect(mockActFunction).toHaveBeenCalledTimes(1);
-            expect(mockActFunction).toHaveBeenCalledWith(correlationID, { move: MOVE.STARBOARD, depth: 42 });
-        });
-
-        test('should throw an error on error from worker', () => {
-            const returnedWMessage: WErrorMessage = {
-                workerID: expect.anything(),
-                correlationID: 'd64385ef-17ed-4891-bb67-9273816be97f',
-                type: MESSAGE_TYPE.ERROR,
-                error: 'error sent from worker',
-            };
-
-            // tslint:disable-next-line
-            expect(() => bot['handleWEvent']({ data: returnedWMessage} as WEvent)).toThrowError();
-        });
-
-        test('should throw an error if trying to handle event without booting', () => {
-            // tslint:disable-next-line
-            bot['bootResolver'] = undefined;
-
-            const returnedWMessage: WBootMessage = {
-                workerID: expect.anything(),
-                correlationID: 'd64385ef-17ed-4891-bb67-9273816be97f',
-                type: MESSAGE_TYPE.BOOT,
-                playerType: PLAYER_TYPE.TS,
-            };
-            // tslint:disable-next-line
-            expect(() =>  bot['handleWEvent']({ data: returnedWMessage } as WEvent)).toThrow(Error);
-        });
-
-        test('should throw an error on unhandled message type', () => {
-            const returnedWMessage: WBootMessage = {
-                workerID: expect.anything(),
-                correlationID: 'd64385ef-17ed-4891-bb67-9273816be97f',
-                type: MESSAGE_TYPE.BOOT,
-                playerType: PLAYER_TYPE.TS,
-            };
-            // tslint:disable-next-line
-            expect(() =>  bot['handleWEvent']({ data: returnedWMessage } as WEvent)).toThrow(TypeError);
-        });
+    test('when worker has finish computing', () => {
+      bot.requestAction(correlationID, position, grid, actFunction);
+      botReactToWorkerMessage({
+        data: {
+          correlationID,
+          type: MESSAGE_TYPE.IDLE,
+          origin: MESSAGE_TYPE.REQUEST,
+        },
+      } as WEvent);
+      expect(bot.isIdle()).toBeTruthy();
+      expect(actFunction).toHaveBeenCalledTimes(0);
     });
-
-    describe('[PRIVATE] handleFatalWError', () => {
-        beforeEach(() => {
-            MockWorker.reset();
-
-            bot = new Bot(botID, playerType);
-        });
-
-        test('should terminate worker and throw an error', () => {
-            const errorFromWorker = Error('fatal error sent from worker');
-            const expectedError = Error('fatal worker error');
-            try {
-                // tslint:disable-next-line
-                bot['handleFatalWError']((errorFromWorker as any) as WEvent);
-            } catch (e) {
-                expect(e).toEqual(expectedError);
-            }
-            MockWorker.verify((m) => m.terminate(), TypeMoq.Times.once());
-        });
-    });
+  });
 });

@@ -1,51 +1,47 @@
 import {MOVE, PLAYER_TYPE} from '@/common/constants';
-import {Grid} from '@/engine/Grid';
+import {Player} from '@/common/interfaces';
+
+import Grid from '@/engine/Grid';
 
 export type UUID = string;
 export type RegisterMoveFunc = (correlationID: UUID, direction: MOVE, depth: number) => void;
-export type ActFunc = (id: UUID, content: { move: MOVE, depth: number }) => void;
+export type ActFunc = (id: UUID, move: MOVE, depth: number) => void;
 
 export interface Color {
     name: string;
     code: string;
 }
 
-export interface PlayerMetadata {
+export interface Protagonist {
+    player: Player;
     name: string;
     id: UUID;
     color: Color;
     alive: boolean;
     type: PLAYER_TYPE;
-    depth?: number;
+    position: Position;
+    performance: Performance;
 }
 
-export interface PlayerPerformance {
+export interface Performance {
     depth: number;
     duration: number;
 }
 
-export interface GameMetadata {
-    gridX: number;
-    gridY: number;
-    playersConstructors: PlayerConstructor[];
-    turnTimeoutMs: number;
-}
-
 export interface Simulation {
     paused: boolean;
-    autoRestartMs: number;
-}
-
-export interface PlayerConstructor {
-    type: PLAYER_TYPE;
-    depth?: number;
+    grid: {
+        sizeX: number,
+        sizeY: number,
+    };
+    participants: Array<[PLAYER_TYPE, any]>;
+    turnTimeout: number;
 }
 
 export interface Position {
     x: number;
     y: number;
     prev?: Position;
-    targets?: MoveTarget;
 }
 
 export interface MoveTarget {

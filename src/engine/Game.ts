@@ -1,15 +1,9 @@
-import Bot from '@/engine/Bot';
 import {generateUUID} from '@/common/functions';
-import {MoveTarget, PlayerConstructor, PlayerPerformance, Position, UUID} from '@/common/types';
+import {MoveTarget, Performance, Position, UUID} from '@/common/types';
 import {Player} from '@/common/interfaces';
 import {GAME_STATUS, MOVE, PLAYER_TYPE} from '@/common/constants';
-import {Grid} from '@/engine/Grid';
 
-const DEFAULT_PLAYERS_CONSTRUCTORS: PlayerConstructor[] = new Array(2).fill({
-  type: PLAYER_TYPE.TS,
-  depth: 5,
-});
-const DEFAULT_TURN_TIMEOUT_MS = 100;
+import Grid from '@/engine/Grid';
 
 interface Protagonist {
   player: Player;
@@ -18,62 +12,52 @@ interface Protagonist {
   depth: number;
   duration: number;
   dead: boolean;
-  type: PLAYER_TYPE;
 }
 
 export default class Game {
   public static INIT_GAME_STATUS = GAME_STATUS.CLEAR;
-  private static positionKey(position: Position): string {
-    return `${position.x}-${position.y}`;
-  }
 
   private static positionMoveTargets(position: Position): MoveTarget {
-    // @ts-ignore
-    const abscissa = (position.x - position.prev.x !== 0) ? 'x' : 'y';
-    const ordinate = (abscissa === 'x') ? 'y' : 'x';
-    // @ts-ignore
-    const delta = position[abscissa] - position.prev[abscissa];
-
-    return {
-      // @ts-ignore
-      [MOVE.FORWARD]: {
-        [abscissa]: position[abscissa] + delta,
-        [ordinate]: position[ordinate],
-      },
-      // @ts-ignore
-      [MOVE.LARBOARD]: {
-        [abscissa]: position[abscissa],
-        [ordinate]: position[ordinate] + delta,
-      },
-      // @ts-ignore
-      [MOVE.STARBOARD]: {
-        [abscissa]: position[abscissa],
-        [ordinate]: position[ordinate] - delta,
-      },
-    };
+    if (!position.prev) {
+      throw Error('no previous position');
+    }
+    const target: MoveTarget = {} as any;
+    if (position.x - position.prev.x !== 0) {
+      // case of move on x abscissa
+      const delta = position.x - position.prev.x;
+      target[MOVE.FORWARD] = { x: position.x + delta, y: position.y };
+      target[MOVE.STARBOARD] = { x: position.x, y: position.y + delta };
+      target[MOVE.LARBOARD] = { x: position.x, y: position.y - delta };
+    } else {
+      // case of move on y abscissa
+      const delta = position.y - position.prev.y;
+      target[MOVE.FORWARD] = { x: position.x, y: position.y + delta };
+      target[MOVE.STARBOARD] = { x: position.x - delta, y: position.y };
+      target[MOVE.LARBOARD] = { x: position.x + delta, y: position.y };
+    }
+    return target;
   }
 
+  public readonly turnTimeoutMs: number;
+  public readonly grid: Grid;
+
   private readonly protagonists: { [id: string]: Protagonist };
-  private readonly turnTimeoutMs: number;
   private readonly nbPlayers: number;
-  private readonly grid: Grid;
-  private referenceTime: number;
-  private state: GAME_STATUS;
+  private referenceTime: number = 0;
+  private state: GAME_STATUS = Game.INIT_GAME_STATUS;
 
   private currentCorrelationID: UUID = '';
 
-  constructor(sizeX: number, sizeY: number, turnTimeoutMs?: number, playersConstructors?: PlayerConstructor[]) {
-    this.state = Game.INIT_GAME_STATUS;
+  constructor(sizeX: number, sizeY: number, turnTimeoutMs: number, players: Player[]) {
     this.grid = new Grid(sizeX, sizeY);
-    this.turnTimeoutMs = turnTimeoutMs ? turnTimeoutMs : DEFAULT_TURN_TIMEOUT_MS;
-    this.nbPlayers = playersConstructors ? playersConstructors.length : DEFAULT_PLAYERS_CONSTRUCTORS.length;
+
+    this.turnTimeoutMs = turnTimeoutMs;
+    this.nbPlayers = players.length;
+
     this.protagonists = {};
-    this.referenceTime = 0;
-    for (const constructor of playersConstructors || DEFAULT_PLAYERS_CONSTRUCTORS) {
-      const id = generateUUID();
-      this.protagonists[id] = {
-        type: constructor.type,
-        player: new Bot(id, constructor.type, constructor.depth),
+    for (const player of players) {
+      this.protagonists[player.id] = {
+        player,
         position: { x: -1, y: -1 },
         move: MOVE.FORWARD,
         depth: 0,
@@ -81,10 +65,6 @@ export default class Game {
         dead: false,
       };
     }
-  }
-
-  public getPlayersIDs(): UUID[] {
-    return Object.keys(this.protagonists);
   }
 
   public isDead(playerID: UUID): boolean {
@@ -103,7 +83,7 @@ export default class Game {
     return protagonist.position;
   }
 
-  public getPerformance(playerID: UUID): PlayerPerformance {
+  public getPerformance(playerID: UUID): Performance {
     const protagonist = this.protagonists[playerID];
     if (!protagonist) {
       throw Error(`unknown player with ID: "${playerID}"`);
@@ -152,6 +132,8 @@ export default class Game {
           const state = GAME_STATUS.RUNNING;
           this.state = state;
           resolve(state);
+        }, () => {
+          reject(Error('failed to boot some players'));
         });
 
       this.currentCorrelationID = correlationID;
@@ -173,30 +155,25 @@ export default class Game {
 
       Object.entries(this.protagonists).filter(([, p]: [UUID, Protagonist]) => {
         return !p.dead;
-      }).forEach(([id, protagonist]: [UUID, Protagonist]) => {
-        const userID = id;
-
+      }).forEach(([, protagonist]: [UUID, Protagonist]) => {
         protagonist.move = MOVE.FORWARD;
         protagonist.depth = 0;
         protagonist.duration = 0;
 
         const position = protagonist.position;
+        const self = this;
+        function act(corr: UUID, move: MOVE, depth: number) {
+          if (corr === correlationID) {
+            protagonist.move = move;
+            protagonist.depth = depth;
+            protagonist.duration = new Date().getTime() - self.referenceTime;
+          } else {
+            // tslint:disable-next-line
+            console.error(`received correlation ID (${corr}) differs from current one (${correlationID})`);
+          }
+        }
 
-        protagonist.player.requestAction(
-          correlationID,
-          position,
-          this.grid,
-          (corr: UUID, content: {move: MOVE, depth: number}) => {
-            if (corr === correlationID) {
-              protagonist.move = content.move;
-              protagonist.depth = content.depth;
-              protagonist.duration = new Date().getTime() - this.referenceTime;
-            } else {
-              // tslint:disable-next-line
-              console.error(`received correlation ID (${corr}) differs from current one (${correlationID})`);
-            }
-          },
-        );
+        protagonist.player.requestAction(correlationID, position, this.grid, act);
       });
       setTimeout(() => {
         const endTurnCorrelationID = generateUUID();
@@ -209,8 +186,8 @@ export default class Game {
           resolve(this.state);
         } else {
           const idlePromises = Object.values(this.protagonists).map((p: Protagonist) => {
-            if (p.player.isIdle()) {
-              return new Promise((r) => r());
+            if (p.player.isIdle() || p.dead) {
+              return Promise.resolve();
             }
             return p.player.boot(endTurnCorrelationID);
           });
@@ -268,8 +245,6 @@ export default class Game {
         const newPosition = Game.positionMoveTargets(position)[p.move];
 
         newPosition.prev = position;
-        newPosition.targets = Game.positionMoveTargets(newPosition);
-
         p.position = newPosition;
 
         this.grid.setCell(userID, newPosition);
@@ -303,6 +278,6 @@ export default class Game {
     if (!this.grid.getCell(position)) {
       return [];
     }
-    return this.grid.getCell(position).map((cell) => cell.userID);
+    return this.grid.getCell(position);
   }
 }

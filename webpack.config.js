@@ -1,26 +1,101 @@
-const { join, resolve } = require("path");
+const { join, resolve } = require('path');
 
-const HTMLWebpackPlugin = require("html-webpack-plugin");
-const WASMPackPlugin = require("@wasm-tool/wasm-pack-plugin");
-const VueLoaderPlugin = require("vue-loader/lib/plugin");
+const Webpack = require('webpack');
+const HTMLWebpackPlugin = require('html-webpack-plugin');
+const WASMPackPlugin = require('@wasm-tool/wasm-pack-plugin');
+const VueLoaderPlugin = require('vue-loader/lib/plugin');
 
-const RUST_ALIAS = "®";
-const SRC_ALIAS = "@";
+const RUST_ALIAS = '®';
+const SRC_ALIAS = '@';
 
-const SRC = resolve(__dirname, "src");
-const WORKERS = join(SRC, "workers");
-const RUST = resolve(__dirname, "crates");
-const DIST = resolve(__dirname, "dist");
+const SRC = resolve(__dirname, 'src');
+const WORKERS = join(SRC, 'workers');
+const RUST = resolve(__dirname, 'crates');
+const DIST = resolve(__dirname, 'dist');
 
 const devServer = {
   contentBase: DIST,
-  publicPath: "/",
+  publicPath: '/',
+};
+
+const RustBotWorker = {
+  devServer,
+  entry: join(WORKERS, 'rust', 'bot.worker.ts'),
+  module: {
+    rules: [
+      {
+        test: /\.ts$/,
+        use: [
+          {
+            loader: 'babel-loader',
+          },
+          {
+            loader: 'ts-loader',
+            options: {
+              transpileOnly: true,
+            },
+          },
+        ],
+      },
+    ],
+  },
+  output: {
+    filename: 'rust-bot-worker.js',
+    path: DIST,
+  },
+  plugins: [
+    new WASMPackPlugin({
+      crateDirectory: join(RUST, 'bot'),
+    }),
+  ],
+  resolve: {
+    alias: {
+      [SRC_ALIAS]: SRC,
+      [RUST_ALIAS]: RUST,
+    },
+    extensions: ['.ts', '.js', '.wasm'],
+  },
+  target: 'webworker',
+};
+
+const TypescriptBotWorker = {
+  devServer,
+  entry: join(WORKERS, 'typescript', 'bot.worker.ts'),
+  module: {
+    rules: [
+      {
+        test: /\.ts$/,
+        use: [
+          {
+            loader: 'babel-loader',
+          },
+          {
+            loader: 'ts-loader',
+            options: {
+              transpileOnly: true,
+            },
+          },
+        ],
+      },
+    ],
+  },
+  output: {
+    filename: 'typescript-bot-worker.js',
+    path: DIST,
+  },
+  resolve: {
+    alias: {
+      [SRC_ALIAS]: SRC,
+    },
+    extensions: ['.ts', '.js'],
+  },
+  target: 'webworker',
 };
 
 const Main = {
   devServer,
   entry: {
-    app: join(SRC, "main.ts"),
+    app: join(SRC, 'main.ts'),
   },
   module: {
     rules: [
@@ -28,7 +103,7 @@ const Main = {
         test: /\.vue$/,
         use: [
           {
-            loader: "vue-loader",
+            loader: 'vue-loader',
           },
         ],
       },
@@ -36,12 +111,12 @@ const Main = {
         test: /\.(png|jpe?g|gif|webp|ico)(\?.*)?$/,
         use: [
           {
-            loader: "url-loader",
+            loader: 'url-loader',
             options: {
               fallback: {
-                loader: "file-loader",
+                loader: 'file-loader',
                 options: {
-                  name: "img/[name].[hash:8].[ext]",
+                  name: 'img/[name].[hash:8].[ext]',
                 },
               },
               limit: 4096,
@@ -53,13 +128,13 @@ const Main = {
         test: /\.ts$/,
         use: [
           {
-            loader: "babel-loader",
+            loader: 'babel-loader',
           },
           {
-            loader: "ts-loader",
+            loader: 'ts-loader',
             options: {
               appendTsSuffixTo: [
-                "\\.vue$",
+                '\\.vue$',
               ],
               transpileOnly: true,
             },
@@ -70,27 +145,27 @@ const Main = {
         test: /\.scss$/,
         use: [
           {
-            loader: "vue-style-loader",
+            loader: 'vue-style-loader',
             options: {
               shadowMode: false,
               sourceMap: false,
             },
           },
           {
-            loader: "css-loader",
+            loader: 'css-loader',
             options: {
               importLoaders: 2,
               sourceMap: false,
             },
           },
           {
-            loader: "postcss-loader",
+            loader: 'postcss-loader',
             options: {
               sourceMap: false,
             },
           },
           {
-            loader: "sass-loader",
+            loader: 'sass-loader',
             options: {
               sourceMap: false,
             },
@@ -100,62 +175,26 @@ const Main = {
     ],
   },
   output: {
-    filename: "[name].[hash].js",
+    filename: '[name].[hash].js',
     path: DIST,
   },
   plugins: [
     new VueLoaderPlugin(),
+    new Webpack.DefinePlugin({
+      TYPESCRIPT_BOT_WORKER: JSON.stringify(TypescriptBotWorker.output.filename),
+      RUST_BOT_WORKER: JSON.stringify(RustBotWorker.output.filename),
+    }),
     new HTMLWebpackPlugin({
-      favicon: join(SRC, "assets", "tron.ico"),
-      template: join(SRC, "html", "index.html"),
+      favicon: join(SRC, 'assets', 'tron.ico'),
+      template: join(SRC, 'html', 'index.html'),
     }),
   ],
   resolve: {
     alias: {
       [SRC_ALIAS]: SRC,
     },
-    extensions: [".js", ".vue", ".json", ".ts"],
+    extensions: ['.js', '.vue', '.json', '.ts'],
   },
 };
 
-const BotWorker = {
-  devServer,
-  entry: join(WORKERS, "bot", "worker.ts"),
-  module: {
-    rules: [
-      {
-        test: /\.ts$/,
-        use: [
-          {
-            loader: "babel-loader",
-          },
-          {
-            loader: "ts-loader",
-            options: {
-              transpileOnly: true,
-            },
-          },
-        ],
-      },
-    ],
-  },
-  output: {
-    filename: "bot.worker.js",
-    path: DIST,
-  },
-  plugins: [
-    new WASMPackPlugin({
-      crateDirectory: join(RUST, "bot"),
-    }),
-  ],
-  resolve: {
-    alias: {
-      [SRC_ALIAS]: SRC,
-      [RUST_ALIAS]: RUST,
-    },
-    extensions: [".ts", ".js", ".wasm"],
-  },
-  target: "webworker",
-};
-
-module.exports = [Main, BotWorker];
+module.exports = [Main, TypescriptBotWorker, RustBotWorker];

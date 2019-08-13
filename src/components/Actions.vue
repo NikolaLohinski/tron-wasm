@@ -1,16 +1,10 @@
 <template>
     <nav id="actions">
-        <div class="button" @click="restart"  v-if="paused && finished">
-            <font-awesome-icon icon="redo"/>
-        </div>
-        <div class="button" @click="() => pause(false)" v-if="paused && !finished">
+        <div class="button" @click="() => pause(false)" v-if="paused" :disabled="finished">
             <font-awesome-icon icon="play" />
         </div>
         <div class="button" @click="() => pause(true)" v-if="!paused">
             <font-awesome-icon icon="pause" />
-        </div>
-        <div class="button" @click="reset">
-            <font-awesome-icon icon="stop"/>
         </div>
     </nav>
 </template>
@@ -26,14 +20,6 @@
 
         get finished(): boolean {
             return this.$store.getters.status === GAME_STATUS.FINISHED;
-        }
-
-        private reset(): Promise<void> {
-            return this.pause(true).then(() => this.$store.dispatch('start', true));
-        }
-
-        private restart(): Promise<void> {
-            return this.$store.dispatch('start').then(() => this.pause(false));
         }
 
         private pause(value: boolean): Promise<void> {
@@ -67,6 +53,10 @@
             &:active{
                 transform:translateY(4px);
                 box-shadow: none;
+            }
+            &[disabled] {
+                pointer-events: none;
+                opacity: 0.2;
             }
         }
     }

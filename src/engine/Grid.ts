@@ -1,6 +1,6 @@
 import {Position, UUID} from '@/common/types';
 
-export class Grid {
+export default class Grid {
 
     public static parse(object: any): Grid {
         const grid = new Grid(object.sizeX, object.sizeY);
@@ -14,7 +14,7 @@ export class Grid {
 
     public readonly sizeX: number;
     public readonly sizeY: number;
-    private filled: {[xy: string]: Array<{ userID: UUID, prev: Position }>};
+    private filled: {[xy: string]: UUID[]};
 
     constructor(sizeX: number, sizeY: number) {
         this.sizeX = sizeX;
@@ -22,11 +22,19 @@ export class Grid {
         this.filled = {};
     }
 
+    public isEmpty(): boolean {
+        return Object.keys(this.filled).length === 0;
+    }
+
     public reset(): void {
         this.filled = {};
     }
 
-    public getCell(position: Position): Array<{ userID: UUID, prev: Position }> {
+    public toJson(): string {
+        return JSON.stringify(this.filled);
+    }
+
+    public getCell(position: Position): UUID[] {
         return this.filled[Grid.key(position)];
     }
 
@@ -34,6 +42,6 @@ export class Grid {
         if (!this.getCell(position)) {
             this.filled[Grid.key(position)] = [];
         }
-        this.filled[Grid.key(position)].push({ userID, prev: position.prev as Position});
+        this.filled[Grid.key(position)].push(userID);
     }
 }

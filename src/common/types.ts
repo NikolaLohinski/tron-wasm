@@ -1,4 +1,4 @@
-import {MOVE, PLAYER_TYPE} from '@/common/constants';
+import {GAME_STATE, MOVE, PLAYER_TYPE} from '@/common/constants';
 import {Player} from '@/common/interfaces';
 
 import Grid from '@/engine/Grid';
@@ -29,7 +29,7 @@ export interface Performance {
 }
 
 export interface Simulation {
-    paused: boolean;
+    state: GAME_STATE;
     grid: {
         sizeX: number,
         sizeY: number,

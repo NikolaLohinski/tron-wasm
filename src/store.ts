@@ -7,7 +7,7 @@ import {
   Simulation,
   UUID,
 } from '@/common/types';
-import {GAME_STATUS, PLAYER_TYPE} from '@/common/constants';
+import {ACTION, GAME_STATE, GAME_STATUS, PLAYER_TYPE} from '@/common/constants';
 import Game from '@/engine/Game';
 import {generateUUID, randomColor, randomName} from '@/common/functions';
 import Bot from '@/engine/Bot';
@@ -25,6 +25,8 @@ interface StateOfMutation {
 
 interface Getters {
   paused: boolean;
+  ticking: boolean;
+  finished: boolean;
   simulation: Simulation;
   game: Game;
   status: GAME_STATUS;
@@ -45,11 +47,11 @@ export default new Vuex.Store({
       instance: undefined as any,
     },
     simulation: {
-      paused: false,
+      state: 'RUNNING',
       turnTimeout: 100,
       participants: [
-        [PLAYER_TYPE.TS, { depth: 3 }],
         [PLAYER_TYPE.TS, { depth: 5 }],
+        [PLAYER_TYPE.TS, { depth: 8 }],
         [PLAYER_TYPE.RUST, { depth: 5 }],
       ],
       grid: {
@@ -60,7 +62,13 @@ export default new Vuex.Store({
   } as StateOfMutation,
   getters: {
     paused(state: StateOfMutation): boolean {
-      return state.simulation.paused;
+      return state.simulation.state === GAME_STATE.PAUSED;
+    },
+    ticking(state: StateOfMutation): boolean {
+      return state.simulation.state === GAME_STATE.TICKING;
+    },
+    finished(state: StateOfMutation): boolean {
+      return state.game.status === GAME_STATUS.FINISHED;
     },
     simulation(state: StateOfMutation): Simulation {
       return state.simulation;
@@ -79,8 +87,8 @@ export default new Vuex.Store({
     protagonists(state: StateOfMutation, protagonists: { [id: string]: Protagonist }): void {
       Vue.set(state, 'protagonists', protagonists);
     },
-    paused(state: StateOfMutation, pause: boolean): void {
-      Vue.set(state.simulation, 'paused', pause);
+    state(state: StateOfMutation, simulationState: GAME_STATE): void {
+      Vue.set(state.simulation, 'state', simulationState);
     },
     game(state: StateOfMutation, game: Game): void {
       state.game.instance = game;
@@ -161,32 +169,50 @@ export default new Vuex.Store({
         resolve();
       });
     },
-    pause(state: StateOfAction, pause: boolean): Promise<void> {
+    do(state: StateOfAction, action: ACTION): Promise<void> {
       return new Promise((resolve) => {
-        const run = !pause && state.getters.paused;
-        state.commit('paused', pause);
-        if (run) {
-          state.dispatch('run').then(resolve);
-        } else {
-          resolve();
+        switch (action) {
+          case ACTION.PAUSE:
+            state.commit('state', GAME_STATE.PAUSED);
+            resolve();
+            break;
+          case ACTION.RUN:
+            const run = state.getters.paused || state.getters.ticking;
+            state.commit('state', GAME_STATE.RUNNING);
+            if (run) {
+              state.dispatch('run').then(resolve);
+            }
+            break;
+          case ACTION.TICK:
+            if (!state.getters.paused) {
+              throw Error('game can not be ticked if it is already running');
+            }
+            state.commit('state', GAME_STATE.TICKING);
+            state.dispatch('run').then(() => {
+              state.commit('state', GAME_STATE.PAUSED);
+              resolve();
+            });
+            break;
+          default:
+            throw Error(`unknown action "${action}"`);
         }
       });
     },
     start(state: StateOfAction, newGame?: boolean): Promise<void> {
       return new Promise((resolve) => {
-        state.dispatch('pause', true).then(() => {
+        state.dispatch('do', ACTION.PAUSE).then(() => {
           const simulation = state.getters.simulation;
           setTimeout(() => {
             state.commit('reviveAll');
             if (newGame) {
               state.dispatch('generate').then(() => {
-                state.dispatch('pause', false).then(() => {
+                state.dispatch('do', ACTION.RUN).then(() => {
                   state.dispatch('run').then(resolve);
                 });
               });
             } else {
               state.commit('status', state.getters.game.reset());
-              state.dispatch('pause', false).then(() => {
+              state.dispatch('do', ACTION.RUN).then(() => {
                 state.dispatch('run').then(resolve);
               });
             }
@@ -195,8 +221,8 @@ export default new Vuex.Store({
       });
     },
     run(state: StateOfAction): Promise<void> {
-      return new Promise((resolve) => {5;
-                                       if (state.getters.paused) {
+      return new Promise((resolve) => {
+        if (state.getters.paused && !state.getters.ticking) {
           resolve();
           return;
         } else {
@@ -227,14 +253,14 @@ export default new Vuex.Store({
     finish(state: StateOfAction): Promise<void> {
       return new Promise((resolve) => {
         state.commit('status', GAME_STATUS.FINISHED);
-        state.commit('paused', true);
+        state.commit('state', 'PAUSE');
 
         setTimeout(() => {
           const resetStatus = state.getters.game.reset();
           state.commit('status', resetStatus);
 
           state.commit('reviveAll');
-          state.commit('paused', false);
+          state.commit('state', 'RUNNING');
 
           state.dispatch('run').then(resolve);
         }, 1000);
@@ -253,7 +279,11 @@ export default new Vuex.Store({
               const userPerformance = state.getters.game.getPerformance(id);
               state.commit('performance', {id, performance: userPerformance});
             });
-            state.dispatch('run').then(resolve);
+            if (state.getters.ticking) {
+              resolve();
+            } else {
+              state.dispatch('run').then(resolve);
+            }
           });
       });
     },

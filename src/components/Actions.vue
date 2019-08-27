@@ -1,16 +1,19 @@
 <template>
     <nav id="actions">
-        <div class="button" @click="() => pause(false)" v-if="paused" :disabled="finished">
+        <div class="button" @click="play" v-if="paused" :disabled="finished || ticking">
             <font-awesome-icon icon="play" />
         </div>
-        <div class="button" @click="() => pause(true)" v-if="!paused">
+        <div class="button" @click="pause" v-else :disabled="finished || ticking ">
             <font-awesome-icon icon="pause" />
+        </div>
+        <div class="button" @click="tick" :disabled="!paused || ticking">
+            <i id="vertical-bar">|</i><font-awesome-icon icon="play" />
         </div>
     </nav>
 </template>
 <script lang="ts">
     import {Component, Vue} from 'vue-property-decorator';
-    import {GAME_STATUS} from '@/common/constants';
+    import {ACTION} from '@/common/constants';
 
     @Component
     export default class Actions extends Vue {
@@ -18,12 +21,24 @@
             return this.$store.getters.paused;
         }
 
-        get finished(): boolean {
-            return this.$store.getters.status === GAME_STATUS.FINISHED;
+        get ticking(): boolean {
+            return this.$store.getters.ticking;
         }
 
-        private pause(value: boolean): Promise<void> {
-            return this.$store.dispatch('pause', value);
+        get finished(): boolean {
+            return this.$store.getters.finished;
+        }
+
+        private pause(): Promise<void> {
+            return this.$store.dispatch('do', ACTION.PAUSE);
+        }
+
+        private play(): Promise<void> {
+          return this.$store.dispatch('do', ACTION.RUN);
+        }
+
+        private tick(): Promise<void> {
+            return this.$store.dispatch('do', ACTION.TICK);
         }
     }
 </script>
@@ -46,6 +61,7 @@
             box-shadow: 0 4px 0 $button-bg-color;
             border-bottom: 1px solid $button-border-color;
             transition: all .1s ease-in;
+            user-select: none;
             &:hover{
                 background: $button-bg-hover-color;
                 color: #aaa;
@@ -57,6 +73,13 @@
             &[disabled] {
                 pointer-events: none;
                 opacity: 0.2;
+            }
+            i#vertical-bar {
+                margin: 0 2px 0 0;
+                vertical-align: top;
+                line-height: 20px;
+                font-weight: bold;
+                pointer-events: none;
             }
         }
     }

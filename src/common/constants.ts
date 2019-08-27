@@ -12,6 +12,18 @@ export const enum GAME_STATUS {
     FINISHED = 'FINISHED',
 }
 
+export const enum ACTION {
+    PAUSE = 'PAUSE',
+    RUN = 'RUN',
+    TICK = 'TICK',
+}
+
+export const enum GAME_STATE {
+    PAUSED = 'PAUSED',
+    RUNNING = 'RUNNING',
+    TICKING = 'TICKING',
+}
+
 export const enum PLAYER_TYPE {
     TS = 'TS',
     RUST = 'RS',

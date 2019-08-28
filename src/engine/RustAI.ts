@@ -1,3 +1,5 @@
+declare var BOT_RUST_IMPORT_PATH: string;
+
 import {BaseAI} from '@/common/interfaces';
 import {RegisterMoveFunc, Turn} from '@/common/types';
 import {MOVE} from '@/common/constants';
@@ -8,8 +10,6 @@ let move: RegisterMoveFunc;
 
 // Imported from RUST, this should be not used otherwise
 export function act(correlationId: string, direction: MOVE, depth: number) {
-  // tslint:disable-next-line
-  console.log(correlationId, direction, depth);
   move(correlationId, direction, depth);
 }
 
@@ -21,7 +21,7 @@ export class RustAI extends BaseAI {
     return new Promise((resolve) => {
       move = register;
       this.maxDepth = params.depth ? params.depth : DEFAULT_RUST_PLAYER_DEPTH;
-      import('®/bot/pkg/bot').then((module) => {
+      import(BOT_RUST_IMPORT_PATH).then((module) => {
         this.module = module;
         resolve();
       });

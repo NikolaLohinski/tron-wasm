@@ -47,6 +47,9 @@ const RustBotWorker = {
     new WASMPackPlugin({
       crateDirectory: join(RUST, 'bot'),
     }),
+    new Webpack.DefinePlugin({
+      BOT_RUST_IMPORT_PATH: JSON.stringify(`${RUST_ALIAS}/bot/pkg`),
+    }),
   ],
   resolve: {
     alias: {

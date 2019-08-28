@@ -1,99 +1,216 @@
 extern crate serde_json;
+extern crate rand;
 
+use rand::rngs::SmallRng;
+use rand::{SeedableRng};
+use rand::prelude::SliceRandom;
 use wasm_bindgen::prelude::*;
-use web_sys::console;
 use std::collections::HashMap;
-use wasm_bindgen::JsValue;
+use web_sys::console;
 
 mod utils;
+mod position;
+mod grid;
 
 #[wasm_bindgen(module = "@/engine/RustAI.ts")]
 extern "C" {
-    fn act(correlation_id: &str, direction: String, depth: u32);
+    fn act(correlation_id: &str, direction: String, depth: i32);
 }
 
 #[wasm_bindgen(start)]
 pub fn start() {
     utils::init();
-    console::log_1(&"[RUST]: runner module loaded".into());
-}
-
-#[wasm_bindgen]
-#[derive(Debug)]
-pub struct Position {
-    pub x: i32,
-    pub y: i32,
-    pub previous_x: i32,
-    pub previous_y: i32,
-}
-
-#[wasm_bindgen]
-impl Position {
-    pub fn new(x: i32, y: i32, previous_x: i32, previous_y: i32) -> Position {
-        Position{
-            x,
-            y,
-            previous_x,
-            previous_y,
-        }
-    }
-}
-
-#[wasm_bindgen]
-#[derive(Debug)]
-pub struct Grid {
-    pub size_x: i32,
-    pub size_y: i32,
-    hash_map: HashMap<String, Vec<String>>,
-}
-
-
-#[wasm_bindgen]
-impl Grid {
-    pub fn key(position: &Position) -> String {
-        format!("{}-{}", position.x, position.y)
-    }
-
-    pub fn new(size_x: i32, size_y: i32, json: String) -> Grid {
-        match serde_json::from_str(&json) {
-            Ok(filled) => Grid {
-                size_x,
-                size_y,
-                hash_map: filled
-            },
-            _ => Grid {
-                size_x,
-                size_y,
-                hash_map: HashMap::new()
-            }
-        }
-    }
-
-    pub fn filled(&self, position: &Position) -> bool {
-        let key = Grid::key(position);
-        self.hash_map.contains_key(&key)
-    }
-}
-
-struct Action {
-    target: Position,
-    score: u32,
-    depth: u32,
-    movement: Option<MOVE>,
-    origin: Option<MOVE>,
 }
 
 #[derive(Copy, Clone)]
-enum MOVE {
-    FORWARD,
-    LARBOARD,
-    STARBOARD,
+enum MOVE { FORWARD, STARBOARD, LARBOARD }
+
+struct Context {
+    pub correlation_id: String,
+    pub position: position::Position,
+    pub grid: grid::Grid,
+    pub max_depth: i32,
+    pub scores: HashMap<String, i32>,
+    pub explored: HashMap<String, Node>,
 }
 
-struct MoveTarget {
-    forward: Position,
-    larboard: Position,
-    starboard: Position,
+#[derive(Copy, Clone)]
+struct Node {
+    pub depth: i32,
+    pub direction: MOVE,
+    pub origin: Option<MOVE>,
+    pub position: position::Position,
+}
+
+#[wasm_bindgen]
+pub fn play(correlation_id: String, position: position::Position, grid: grid::Grid, max_depth: i32) {
+    let mut scores = HashMap::new();
+    scores.insert(to_direction(&MOVE::FORWARD), 0);
+    scores.insert(to_direction(&MOVE::STARBOARD), 0);
+    scores.insert(to_direction(&MOVE::LARBOARD), 0);
+
+    let mut ctx = Context{
+        correlation_id,
+        position,
+        grid,
+        max_depth,
+        scores,
+        explored: HashMap::new()
+    };
+    let root = Node {
+        position: position.clone(),
+        origin: None,
+        direction: MOVE::FORWARD,
+        depth: 0,
+    };
+    let mut nodes = Vec::new();
+    nodes.push(root);
+
+    for depth in 0..(max_depth + 1) {
+        let merged_nodes = mergeChildren(&ctx, nodes);
+        nodes = Vec::new();
+        for node in merged_nodes {
+            nodes.push(node.clone());
+            evaluate_node(&mut ctx, node);
+        }
+        evaluate_context(&mut ctx, depth);
+    }
+}
+
+fn evaluate_node(ctx: &mut Context, node: Node) {
+    let key = format!("{}-{}", node.position.x, node.position.y);
+    if ctx.explored.contains_key(&key) {
+        let explored = ctx.explored.get(&key).unwrap();
+        if explored.depth < node.depth {
+            let previous_score = ctx.scores.get(&to_direction(&explored.direction)).unwrap();
+            ctx.scores.insert(to_direction(&explored.direction), previous_score - explored.depth);
+
+            let score = ctx.scores.get(&to_direction(&node.origin.unwrap())).unwrap();
+            ctx.scores.insert(to_direction(&node.origin.unwrap()), score + node.depth);
+
+            ctx.explored.insert(key.clone(), node);
+        }
+    } else {
+        let score = ctx.scores.get(&to_direction(&node.origin.unwrap())).unwrap();
+        ctx.scores.insert(to_direction(&node.origin.unwrap()), score + node.depth);
+        ctx.explored.insert(key.clone(), node);
+    }
+}
+
+fn evaluate_context(ctx: &mut Context, depth: i32) {
+    let mut current_score = ctx.scores.get(&to_direction(&MOVE::FORWARD)).unwrap();
+    let mut action: String = to_direction(&MOVE::FORWARD);
+    for (key, value) in ctx.scores.iter() {
+        if value > current_score {
+            current_score = value;
+            action = key.to_string();
+        }
+    }
+    act(&ctx.correlation_id, action, depth);
+}
+
+// Returns (FORWARD, STARBOARD, LARBOARD)
+fn moves(position: position::Position) -> (position::Position, position::Position, position::Position) {
+    let dx = position.x - position.previous_x;
+    let dy = position.y - position.previous_y;
+    if dx != 0 {
+        return (
+            position::Position::new(
+                position.x + dx,
+                position.y,
+                position.x,
+                position.y,
+            ),
+            position::Position::new(
+                position.x,
+                position.y + dx,
+                position.x,
+                position.y,
+            ),
+            position::Position::new(
+                position.x,
+                position.y - dx,
+                position.x,
+                position.y,
+            ),
+        )
+    } else {
+        return (
+            position::Position::new(
+                position.x,
+                position.y + dy,
+                position.x,
+                position.y,
+            ),
+            position::Position::new(
+                position.x - dy,
+                position.y,
+                position.x,
+                position.y,
+            ),
+            position::Position::new(
+                position.x + dy,
+                position.y,
+                position.x,
+                position.y,
+            ),
+        )
+    }
+}
+
+fn mergeChildren(ctx: &Context, nodes: Vec<Node>) -> Vec<Node> {
+    let mut merged = Vec::new();
+    for node in nodes {
+        let children = childrenNodes(ctx, &node);
+        for child in children {
+            merged.push(child);
+        }
+    }
+
+    let mut small_rng = SmallRng::from_entropy();
+    merged.shuffle(&mut small_rng);
+
+    merged
+}
+
+fn childrenNodes(ctx: &Context, node: &Node) -> Vec<Node> {
+    let mut nodes = Vec::new();
+    let (forward, starboard, larboard) = match moves(node.position.clone()) {
+        (f, s, l) => (
+            new_node(f, node, MOVE::FORWARD),
+            new_node(s, node, MOVE::STARBOARD),
+            new_node(l, node, MOVE::LARBOARD),
+        )
+    };
+    if !is_invalid(&forward.position, &ctx.grid) {
+        nodes.push(forward);
+    }
+    if !is_invalid(&starboard.position, &ctx.grid) {
+        nodes.push(starboard);
+    }
+    if !is_invalid(&larboard.position, &ctx.grid) {
+        nodes.push(larboard);
+    }
+    nodes
+}
+
+fn new_node(position: position::Position, parent: &Node, direction: MOVE) -> Node {
+    let origin = match parent.origin {
+        Some(origin) => origin,
+        None => direction,
+    };
+    Node {
+        depth: parent.depth + 1,
+        direction,
+        position,
+        origin: Some(origin),
+    }
+}
+
+fn is_invalid(position: &position::Position, grid: &grid::Grid) -> bool {
+    match (position.x, position.y) {
+        (x, y) => x < 0 || y < 0 || x >= grid.size_x || y >= grid.size_y || grid.filled(x, y),
+    }
 }
 
 fn to_direction(m: &MOVE) -> String {
@@ -101,149 +218,5 @@ fn to_direction(m: &MOVE) -> String {
         MOVE::FORWARD => "FORWARD".into(),
         MOVE::LARBOARD => "LARBOARD".into(),
         MOVE::STARBOARD => "STARBOARD".into(),
-    }
-}
-
-#[wasm_bindgen]
-pub fn play(correlation_id: &str, position: Position, grid: &Grid, max_depth: u32) {
-    let root = Action{
-        target: position,
-        score: 1,
-        depth: 0,
-        movement: None,
-        origin: None,
-    };
-    let mut children = Vec::new();
-    children.push(root);
-
-    for _ in 0..max_depth {
-        let mut new_children = Vec::new();
-        for child in children {
-            let newly_explored = explore(correlation_id, child, grid);
-            for explored in newly_explored {
-                new_children.push(explored);
-            }
-        }
-        children = new_children;
-    }
-}
-
-fn explore(correlation_id: &str, action: Action, grid: &Grid) -> Vec<Action> {
-    let target = position_move_targets(&action.target);
-
-    let mut explored = Vec::new();
-
-    let depth = action.depth + 1;
-    let score = action.score + 1;
-
-    let starboard_origin = match &action.origin {
-        Some(MOVE::FORWARD) => MOVE::FORWARD,
-        Some(MOVE::LARBOARD) => MOVE::LARBOARD,
-        Some(MOVE::STARBOARD) => MOVE::STARBOARD,
-        None => MOVE::STARBOARD,
-    };
-    let starboard = Action {
-        origin: Some(starboard_origin),
-        score,
-        depth,
-        movement: Some(MOVE::STARBOARD),
-        target: target.starboard,
-    };
-    if !is_invalid(&starboard.target, grid) {
-        act(correlation_id, to_direction(&starboard_origin), depth);
-        explored.push(starboard);
-    }
-
-    let larboard_origin = match &action.origin {
-        Some(MOVE::FORWARD) => MOVE::FORWARD,
-        Some(MOVE::LARBOARD) => MOVE::LARBOARD,
-        Some(MOVE::STARBOARD) => MOVE::STARBOARD,
-        None => MOVE::LARBOARD,
-    };
-    let larboard = Action {
-        origin: Some(larboard_origin),
-        score,
-        depth,
-        movement: Some(MOVE::LARBOARD),
-        target: target.larboard,
-    };
-    if !is_invalid(&larboard.target, grid) {
-        act(correlation_id, to_direction(&larboard_origin), depth);
-        explored.push(larboard);
-    }
-
-    let forward_origin = match &action.origin {
-        Some(MOVE::FORWARD) => MOVE::FORWARD,
-        Some(MOVE::LARBOARD) => MOVE::LARBOARD,
-        Some(MOVE::STARBOARD) => MOVE::STARBOARD,
-        None => MOVE::FORWARD,
-    };
-    let forward = Action {
-        origin: Some(forward_origin),
-        score,
-        depth,
-        movement: Some(MOVE::FORWARD),
-        target: target.forward,
-    };
-    if !is_invalid(&forward.target, grid) {
-        act(correlation_id, to_direction(&forward_origin), depth);
-        explored.push(forward);
-    }
-
-    explored
-}
-
-fn position_move_targets(position: &Position) -> MoveTarget {
-    match position.x - position.previous_x {
-        delta if delta != 0 => MoveTarget {
-            forward: Position {
-                x: position.x + delta,
-                y: position.y,
-                previous_x: position.x,
-                previous_y: position.y
-            },
-            larboard: Position {
-                x: position.x,
-                y: position.y - delta,
-                previous_x: position.x,
-                previous_y: position.y
-            },
-            starboard: Position {
-                x: position.x,
-                y: position.y + delta,
-                previous_x: position.x,
-                previous_y: position.y
-            }
-        },
-        _ => {
-            let delta = position.y - position.previous_y;
-            MoveTarget {
-                forward: Position {
-                    x: position.x + delta,
-                    y: position.y,
-                    previous_x: position.x,
-                    previous_y: position.y
-                },
-                larboard: Position {
-                    x: position.x,
-                    y: position.y + delta,
-                    previous_x: position.x,
-                    previous_y: position.y
-                },
-                starboard: Position {
-                    x: position.x,
-                    y: position.y - delta,
-                    previous_x: position.x,
-                    previous_y: position.y
-                }
-            }
-        }
-    }
-}
-
-fn is_invalid(position: &Position, grid: &Grid) -> bool {
-    match (position.x, position.y) {
-        (x, y) if x < 0 || y < 0 || x >= grid.size_x || y >= grid.size_y => true,
-        _ => grid.filled(position),
     }
 }

@@ -115,10 +115,10 @@ export default class Scores extends Vue {
                     width: 20px;
                 }
                 &.depth {
-                    width: 60px;
+                    min-width: 60px;
                 }
                 &.duration {
-                    width: 60px;
+                    min-width: 60px;
                     white-space: pre-wrap;
                 }
                 @media screen and (max-width: 650px) {
@@ -138,10 +138,10 @@ export default class Scores extends Vue {
                         width: 15px;
                     }
                     &.depth {
-                        width: 40px;
+                        min-width: 40px;
                     }
                     &.duration {
-                        width: 40px;
+                        min-width: 40px;
                     }
                 }
             }

@@ -35,26 +35,28 @@ export class TypescriptAI extends BaseAI {
     });
   }
 
-  public play(turn: Turn): void {
-    const ctx: Context = {
-      turn,
-      map: {},
-      scores: {
-        [MOVE.FORWARD]: 0,
-        [MOVE.STARBOARD]: 0,
-        [MOVE.LARBOARD]: 0,
-      },
-    };
-    let nodes: Node[] = [{ depth: 0, position: turn.position } as Node];
-    for (let depth = 0; depth <= (this.depth || DEFAULT_TS_PLAYER_DEPTH); depth++) {
-      nodes = this.mergeChildren(ctx, ...nodes);
-      for (const node of nodes) {
-        this.evaluateNode(ctx, node);
+  public play(turn: Turn): Promise<void> {
+    return new Promise((resolve) => {
+      const ctx: Context = {
+        turn,
+        map: {},
+        scores: {
+          [MOVE.FORWARD]: 0,
+          [MOVE.STARBOARD]: 0,
+          [MOVE.LARBOARD]: 0,
+        },
+      };
+      let nodes: Node[] = [{ depth: 0, position: turn.position } as Node];
+      for (let depth = 0; depth <= (this.depth || DEFAULT_TS_PLAYER_DEPTH); depth++) {
+        nodes = this.mergeChildren(ctx, ...nodes);
+        for (const node of nodes) {
+          this.evaluateNode(ctx, node);
+        }
+        this.evaluateContext(ctx, depth);
       }
-      this.evaluateContext(ctx, depth);
-    }
 
-    return;
+      resolve();
+    });
   }
 
   // Returns [FORWARD, STARBOARD, LARBOARD]

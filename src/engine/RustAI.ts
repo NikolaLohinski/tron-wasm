@@ -28,22 +28,25 @@ export class RustAI extends BaseAI {
     });
   }
 
-  public play(turn: Turn): void {
-    if (!turn.position.prev) {
-      turn.position.prev = turn.position;
-    }
-    const position = this.module.Position.new(
-      turn.position.x,
-      turn.position.y,
-      turn.position.prev.x,
-      turn.position.prev.y,
-    );
-    const grid = this.module.Grid.new(
-      turn.grid.sizeX,
-      turn.grid.sizeY,
-      turn.grid.toJson(),
-    );
+  public play(turn: Turn): Promise<void> {
+    return new Promise((resolve) => {
+      if (!turn.position.prev) {
+        turn.position.prev = turn.position;
+      }
+      const position = this.module.Position.new(
+        turn.position.x,
+        turn.position.y,
+        turn.position.prev.x,
+        turn.position.prev.y,
+      );
+      const grid = this.module.Grid.new(
+        turn.grid.sizeX,
+        turn.grid.sizeY,
+        turn.grid.toJson(),
+      );
 
-    this.module.play(turn.correlationID, position, grid, this.maxDepth);
+      this.module.play(turn.correlationID, position, grid, this.maxDepth);
+      resolve();
+    });
   }
 }

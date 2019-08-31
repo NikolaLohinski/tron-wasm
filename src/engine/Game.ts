@@ -15,7 +15,8 @@ interface Protagonist {
 }
 
 export default class Game {
-  public static INIT_GAME_STATUS = GAME_STATUS.CLEAR;
+  public static readonly INIT_GAME_STATUS = GAME_STATUS.CLEAR;
+  public static readonly MIN_TURN_TIME = 50;
 
   private static positionMoveTargets(position: Position): MoveTarget {
     if (!position.prev) {
@@ -153,9 +154,9 @@ export default class Game {
       this.currentCorrelationID = correlationID;
       this.referenceTime = new Date().getTime();
 
-      Object.entries(this.protagonists).filter(([, p]: [UUID, Protagonist]) => {
+      const requests = Object.entries(this.protagonists).filter(([, p]: [UUID, Protagonist]) => {
         return !p.dead;
-      }).forEach(([, protagonist]: [UUID, Protagonist]) => {
+      }).map(([, protagonist]: [UUID, Protagonist]) => {
         protagonist.move = MOVE.FORWARD;
         protagonist.depth = 0;
         protagonist.duration = 0;
@@ -173,27 +174,41 @@ export default class Game {
           }
         }
 
-        protagonist.player.requestAction(correlationID, position, this.grid, act);
+        return protagonist.player.requestAction(correlationID, position, this.grid, act);
       });
-      setTimeout(() => {
+      const self = this;
+      let finished = false;
+      function finishTurn() {
+        if (finished) {
+          return
+        }
+        finished = true;
         const endTurnCorrelationID = generateUUID();
-        this.currentCorrelationID = endTurnCorrelationID;
+        self.currentCorrelationID = endTurnCorrelationID;
 
-        this.resolveTurn();
+        self.resolveTurn();
 
-        if (this.state !== GAME_STATUS.RUNNING) {
-          Object.values(this.protagonists).forEach((p) => p.player.destroy());
-          resolve(this.state);
+        if (self.state !== GAME_STATUS.RUNNING) {
+          Object.values(self.protagonists).forEach((p) => p.player.destroy());
+          resolve(self.state);
         } else {
-          const idlePromises = Object.values(this.protagonists).map((p: Protagonist) => {
+          const idlePromises = Object.values(self.protagonists).map((p: Protagonist) => {
             if (p.player.isIdle() || p.dead) {
               return Promise.resolve();
             }
             return p.player.boot(endTurnCorrelationID);
           });
-          Promise.all(idlePromises).then(() => resolve(this.state));
+          Promise.all(idlePromises).then(() => resolve(self.state));
         }
-      }, this.turnTimeoutMs);
+      }
+      const timeout = setTimeout(finishTurn.bind(this), this.turnTimeoutMs);
+      const start = new Date().getTime();
+      Promise.all(requests).then(() => {
+        clearTimeout(timeout);
+        setTimeout(() => {
+          finishTurn();
+        }, Game.MIN_TURN_TIME - new Date().getTime() + start)
+      })
     });
   }
 

@@ -48,6 +48,7 @@
     $button-bg-hover-color: darken($button-bg-color,5%);
     $button-bg-shadow-active-color: darken($button-bg-color,10%);
     nav#actions {
+        user-select: none;
         .button{
             display: inline-block;
             padding: 20px 0 15px 0;
@@ -61,7 +62,6 @@
             box-shadow: 0 4px 0 $button-bg-color;
             border-bottom: 1px solid $button-border-color;
             transition: all .1s ease-in;
-            user-select: none;
             &:hover{
                 background: $button-bg-hover-color;
                 color: #aaa;
@@ -77,7 +77,7 @@
             i#vertical-bar {
                 margin: 0 2px 0 0;
                 vertical-align: top;
-                line-height: 20px;
+                line-height: 19px;
                 font-weight: bold;
                 pointer-events: none;
             }

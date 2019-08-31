@@ -7,10 +7,12 @@ const VueLoaderPlugin = require('vue-loader/lib/plugin');
 
 const RUST_ALIAS = '®';
 const SRC_ALIAS = '@';
+const GO_ALIAS = '%';
 
 const SRC = resolve(__dirname, 'src');
 const WORKERS = join(SRC, 'workers');
 const RUST = resolve(__dirname, 'crates');
+const GO = resolve(__dirname, 'go');
 const DIST = resolve(__dirname, 'dist');
 
 const devServer = {
@@ -89,8 +91,57 @@ const TypescriptBotWorker = {
   resolve: {
     alias: {
       [SRC_ALIAS]: SRC,
+      [RUST_ALIAS]: SRC,
     },
     extensions: ['.ts', '.js'],
+  },
+  target: 'webworker',
+};
+
+
+const GoBotWorker = {
+  devServer,
+  entry: join(WORKERS, 'go', 'bot.worker.ts'),
+  module: {
+    rules: [
+      {
+        test: /\.ts$/,
+        use: [
+          {
+            loader: 'babel-loader',
+          },
+          {
+            loader: 'ts-loader',
+            options: {
+              transpileOnly: true,
+            },
+          },
+        ],
+      },
+      {
+        test: /\.go/,
+        use: ['golang-wasm-async-loader']
+      },
+    ],
+  },
+  output: {
+    filename: 'go-bot-worker.js',
+    path: DIST,
+  },
+  plugins: [
+    new Webpack.DefinePlugin({
+      BOT_GO_IMPORT_PATH: JSON.stringify(`${GO_ALIAS}/bot/main.go`),
+    }),
+  ],
+  node: {
+    fs: 'empty'
+  },
+  resolve: {
+    alias: {
+      [SRC_ALIAS]: SRC,
+      [GO_ALIAS]: GO,
+    },
+    extensions: ['.ts', '.js', '.wasm', '.go'],
   },
   target: 'webworker',
 };
@@ -186,6 +237,7 @@ const Main = {
     new Webpack.DefinePlugin({
       TYPESCRIPT_BOT_WORKER: JSON.stringify(TypescriptBotWorker.output.filename),
       RUST_BOT_WORKER: JSON.stringify(RustBotWorker.output.filename),
+      GO_BOT_WORKER: JSON.stringify(GoBotWorker.output.filename),
     }),
     new HTMLWebpackPlugin({
       favicon: join(SRC, 'assets', 'tron.ico'),
@@ -200,4 +252,4 @@ const Main = {
   },
 };
 
-module.exports = [Main, TypescriptBotWorker, RustBotWorker];
+module.exports = [Main, TypescriptBotWorker, RustBotWorker, GoBotWorker];

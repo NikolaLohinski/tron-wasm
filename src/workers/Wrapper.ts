@@ -74,15 +74,15 @@ export default class Wrapper {
                         userID: message.userID,
                         position: message.position,
                         grid: Grid.parse(message.grid),
+                    }).then(() => {
+                        const idleMessage: WIdleMessage = {
+                            workerID: message.workerID,
+                            correlationID: message.correlationID,
+                            origin: MESSAGE_TYPE.REQUEST,
+                            type: MESSAGE_TYPE.IDLE,
+                        };
+                        resolve(idleMessage);
                     });
-
-                    const idleMessage: WIdleMessage = {
-                        workerID: message.workerID,
-                        correlationID: message.correlationID,
-                        origin: MESSAGE_TYPE.REQUEST,
-                        type: MESSAGE_TYPE.IDLE,
-                    };
-                    resolve(idleMessage);
                     break;
                 default:
                     throw Error(`unknown message of type '${message.type}'`);

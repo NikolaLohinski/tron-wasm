@@ -1,5 +1,6 @@
 declare var TYPESCRIPT_BOT_WORKER: string;
 declare var RUST_BOT_WORKER: string;
+declare var GO_BOT_WORKER: string;
 
 import {
   IWorker,
@@ -29,6 +30,8 @@ export default class Bot implements Player {
   private workerID: UUID = '';
   private idle: boolean;
 
+  private activeRequestResolver?: () => void;
+
   constructor(id: UUID, type: PLAYER_TYPE, parameters?: any) {
     this.id = id;
     this.type = type;
@@ -50,6 +53,9 @@ export default class Bot implements Player {
         case PLAYER_TYPE.RUST:
           this.worker = new Worker(RUST_BOT_WORKER);
           break;
+        case PLAYER_TYPE.GO:
+          this.worker = new Worker(GO_BOT_WORKER);
+          break;
         default:
           throw Error(`unknown player type "${this.type}"`);
       }
@@ -70,32 +76,36 @@ export default class Bot implements Player {
     return this.idle;
   }
 
-  public requestAction(corr: UUID, position: Position, grid: Grid, act: ActFunc): void {
-    if (!this.idle) {
-      throw Error('can not request action of a bot that is not idle');
-    }
-    if (!this.worker) {
-      throw Error('bot has not been booted');
-    }
+  public requestAction(corr: UUID, position: Position, grid: Grid, act: ActFunc): Promise<void> {
+    return new Promise((resolve) => {
+      if (!this.idle) {
+        throw Error('can not request action of a bot that is not idle');
+      }
+      if (!this.worker) {
+        throw Error('bot has not been booted');
+      }
 
-    this.actFunction = act;
+      this.actFunction = act;
+      this.activeRequestResolver = resolve;
 
-    const requestMessage: WRequestMessage = {
-      type: MESSAGE_TYPE.REQUEST,
-      workerID: this.workerID,
-      correlationID: corr,
-      userID: this.id,
-      position,
-      grid,
-    };
-    this.worker.postMessage(requestMessage);
-    this.idle = false;
+      const requestMessage: WRequestMessage = {
+        type: MESSAGE_TYPE.REQUEST,
+        workerID: this.workerID,
+        correlationID: corr,
+        userID: this.id,
+        position,
+        grid,
+      };
+      this.worker.postMessage(requestMessage);
+      this.idle = false;
+    });
   }
 
   public destroy(): void {
     if (!this.worker) {
       throw Error('bot has not been booted');
     }
+    this.activeRequestResolver = undefined;
     this.worker.terminate();
     this.idle = false;
   }
@@ -107,6 +117,10 @@ export default class Bot implements Player {
       case MESSAGE_TYPE.IDLE:
         if (message.origin === MESSAGE_TYPE.BOOT) {
           throw Error('can not handle events on not booted worker');
+        }
+        if (this.activeRequestResolver) {
+          this.activeRequestResolver();
+          this.activeRequestResolver = undefined;
         }
         this.idle = true;
         break;

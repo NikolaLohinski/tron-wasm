@@ -4,7 +4,7 @@ import Grid from '@/engine/Grid';
 import {PLAYER_TYPE} from '@/common/constants';
 
 export interface AI {
-    play(turn: Turn): void;
+    play(turn: Turn): Promise<void>;
     init(register: RegisterMoveFunc, params: any): Promise<void>;
 }
 
@@ -27,7 +27,7 @@ export class BaseAI implements AI {
         });
     }
 
-    public play(turn: Turn): void {
+    public play(turn: Turn): Promise<void> {
         throw Error('not implemented');
     }
     protected register: RegisterMoveFunc = () => {

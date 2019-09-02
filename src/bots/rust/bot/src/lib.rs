@@ -6,13 +6,12 @@ use rand::{SeedableRng};
 use rand::prelude::SliceRandom;
 use wasm_bindgen::prelude::*;
 use std::collections::HashMap;
-use web_sys::console;
 
 mod utils;
 mod position;
 mod grid;
 
-#[wasm_bindgen(module = "@/engine/RustAI.ts")]
+#[wasm_bindgen(module = "@/bots/rust/RustWrapper.ts")]
 extern "C" {
     fn act(correlation_id: &str, direction: String, depth: i32);
 }
@@ -67,7 +66,7 @@ pub fn play(correlation_id: String, position: position::Position, grid: grid::Gr
     nodes.push(root);
 
     for depth in 0..(max_depth + 1) {
-        let merged_nodes = mergeChildren(&ctx, nodes);
+        let merged_nodes = merge_children(&ctx, nodes);
         nodes = Vec::new();
         for node in merged_nodes {
             nodes.push(node.clone());
@@ -158,10 +157,10 @@ fn moves(position: position::Position) -> (position::Position, position::Positio
     }
 }
 
-fn mergeChildren(ctx: &Context, nodes: Vec<Node>) -> Vec<Node> {
+fn merge_children(ctx: &Context, nodes: Vec<Node>) -> Vec<Node> {
     let mut merged = Vec::new();
     for node in nodes {
-        let children = childrenNodes(ctx, &node);
+        let children = children_nodes(ctx, &node);
         for child in children {
             merged.push(child);
         }
@@ -173,7 +172,7 @@ fn mergeChildren(ctx: &Context, nodes: Vec<Node>) -> Vec<Node> {
     merged
 }
 
-fn childrenNodes(ctx: &Context, node: &Node) -> Vec<Node> {
+fn children_nodes(ctx: &Context, node: &Node) -> Vec<Node> {
     let mut nodes = Vec::new();
     let (forward, starboard, larboard) = match moves(node.position.clone()) {
         (f, s, l) => (

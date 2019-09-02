@@ -25,7 +25,6 @@
     "file-loader": "4.2.0",
     "golang-wasm-async-loader": "0.4.1",
     "html-webpack-plugin": "3.2.0",
-    "husky": "3.0.3",
     "jest": "24.8.0",
     "jest-serializer-vue": "2.0.2",
     "jest-transform-stub": "2.0.0",
@@ -55,8 +54,5 @@
     "@fortawesome/vue-fontawesome": "0.1.6",
     "vue": "2.6.10",
     "vuex": "3.1.1"
-  },
-  "husky": {
-    "hooks": {}
   }
 }

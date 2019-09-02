@@ -2,152 +2,16 @@ const { join, resolve } = require('path');
 
 const Webpack = require('webpack');
 const HTMLWebpackPlugin = require('html-webpack-plugin');
-const WASMPackPlugin = require('@wasm-tool/wasm-pack-plugin');
 const VueLoaderPlugin = require('vue-loader/lib/plugin');
 
-const RUST_ALIAS = '®';
-const SRC_ALIAS = '@';
-const GO_ALIAS = '%';
+const GoBotWorker = require('./src/bots/golang/webpack.config.js');
+const RustBotWorker = require('./src/bots/rust/webpack.config.js');
+const TypeScriptBotWorker = require('./src/bots/typescript/webpack.config.js');
 
 const SRC = resolve(__dirname, 'src');
-const WORKERS = join(SRC, 'workers');
-const RUST = resolve(__dirname, 'crates');
-const GO = resolve(__dirname, 'go');
-const DIST = resolve(__dirname, 'dist');
-
-const devServer = {
-  contentBase: DIST,
-  publicPath: '/',
-};
-
-const RustBotWorker = {
-  devServer,
-  entry: join(WORKERS, 'rust', 'bot.worker.ts'),
-  module: {
-    rules: [
-      {
-        test: /\.ts$/,
-        use: [
-          {
-            loader: 'babel-loader',
-          },
-          {
-            loader: 'ts-loader',
-            options: {
-              transpileOnly: true,
-            },
-          },
-        ],
-      },
-    ],
-  },
-  output: {
-    filename: 'rust-bot-worker.js',
-    path: DIST,
-  },
-  plugins: [
-    new WASMPackPlugin({
-      crateDirectory: join(RUST, 'bot'),
-    }),
-    new Webpack.DefinePlugin({
-      BOT_RUST_IMPORT_PATH: JSON.stringify(`${RUST_ALIAS}/bot/pkg`),
-    }),
-  ],
-  resolve: {
-    alias: {
-      [SRC_ALIAS]: SRC,
-      [RUST_ALIAS]: RUST,
-    },
-    extensions: ['.ts', '.js', '.wasm'],
-  },
-  target: 'webworker',
-};
-
-const TypescriptBotWorker = {
-  devServer,
-  entry: join(WORKERS, 'typescript', 'bot.worker.ts'),
-  module: {
-    rules: [
-      {
-        test: /\.ts$/,
-        use: [
-          {
-            loader: 'babel-loader',
-          },
-          {
-            loader: 'ts-loader',
-            options: {
-              transpileOnly: true,
-            },
-          },
-        ],
-      },
-    ],
-  },
-  output: {
-    filename: 'typescript-bot-worker.js',
-    path: DIST,
-  },
-  resolve: {
-    alias: {
-      [SRC_ALIAS]: SRC,
-      [RUST_ALIAS]: SRC,
-    },
-    extensions: ['.ts', '.js'],
-  },
-  target: 'webworker',
-};
-
-
-const GoBotWorker = {
-  devServer,
-  entry: join(WORKERS, 'go', 'bot.worker.ts'),
-  module: {
-    rules: [
-      {
-        test: /\.ts$/,
-        use: [
-          {
-            loader: 'babel-loader',
-          },
-          {
-            loader: 'ts-loader',
-            options: {
-              transpileOnly: true,
-            },
-          },
-        ],
-      },
-      {
-        test: /\.go/,
-        use: ['golang-wasm-async-loader']
-      },
-    ],
-  },
-  output: {
-    filename: 'go-bot-worker.js',
-    path: DIST,
-  },
-  plugins: [
-    new Webpack.DefinePlugin({
-      BOT_GO_IMPORT_PATH: JSON.stringify(`${GO_ALIAS}/bot/main.go`),
-    }),
-  ],
-  node: {
-    fs: 'empty'
-  },
-  resolve: {
-    alias: {
-      [SRC_ALIAS]: SRC,
-      [GO_ALIAS]: GO,
-    },
-    extensions: ['.ts', '.js', '.wasm', '.go'],
-  },
-  target: 'webworker',
-};
+const BUILD = resolve(__dirname, 'build');
 
 const Main = {
-  devServer,
   entry: {
     app: join(SRC, 'main.ts'),
   },
@@ -230,12 +94,11 @@ const Main = {
   },
   output: {
     filename: '[name].[hash].js',
-    path: DIST,
   },
   plugins: [
     new VueLoaderPlugin(),
     new Webpack.DefinePlugin({
-      TYPESCRIPT_BOT_WORKER: JSON.stringify(TypescriptBotWorker.output.filename),
+      TYPESCRIPT_BOT_WORKER: JSON.stringify(TypeScriptBotWorker.output.filename),
       RUST_BOT_WORKER: JSON.stringify(RustBotWorker.output.filename),
       GO_BOT_WORKER: JSON.stringify(GoBotWorker.output.filename),
     }),
@@ -245,11 +108,16 @@ const Main = {
     }),
   ],
   resolve: {
-    alias: {
-      [SRC_ALIAS]: SRC,
-    },
     extensions: ['.js', '.vue', '.json', '.ts'],
   },
 };
 
-module.exports = [Main, TypescriptBotWorker, RustBotWorker, GoBotWorker];
+module.exports = [Main, TypeScriptBotWorker, RustBotWorker, GoBotWorker].map((config) => {
+  config.devServer = {
+    contentBase: BUILD,
+    publicPath: '/'
+  };
+  config.output.path = BUILD;
+  config.resolve.alias = { ...{ ['@']: SRC }, ...config.resolve.alias };
+  return config
+});

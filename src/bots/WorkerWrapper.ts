@@ -6,13 +6,13 @@ import {
     WMessage,
     WResultMessage,
     WIdleMessage,
-} from '@/workers/types';
+} from '@/bots/types';
 import {RegisterMoveFunc} from '@/common/types';
 
 import {AI} from '@/common/interfaces';
 import Grid from '@/engine/Grid';
 
-export default class Wrapper {
+export default class WorkerWrapper {
 
     private readonly ctx: IWorkerContext;
     private readonly player: AI;

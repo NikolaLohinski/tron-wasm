@@ -5,7 +5,7 @@ import {RegisterMoveFunc, Turn} from '@/common/types';
 
 const DEFAULT_GO_PLAYER_DEPTH = 2;
 
-export class GoAI extends BaseAI {
+export default class GoWrapper extends BaseAI {
   private go: any;
   private maxDepth?: number;
 

@@ -13,7 +13,7 @@ export function act(correlationId: string, direction: MOVE, depth: number) {
   move(correlationId, direction, depth);
 }
 
-export class RustAI extends BaseAI {
+export class RustWrapper extends BaseAI {
   private module?: any;
   private maxDepth?: number;
 

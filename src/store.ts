@@ -48,11 +48,11 @@ export default new Vuex.Store({
     },
     simulation: {
       state: 'RUNNING',
-      turnTimeout: 1000,
+      turnTimeout: 5000,
       participants: [
-        [PLAYER_TYPE.TS, { depth: 8 }],
-        [PLAYER_TYPE.RUST, { depth: 8}],
-        [PLAYER_TYPE.GO, { depth: 8}],
+        [PLAYER_TYPE.TS, { depth: 11 }],
+        [PLAYER_TYPE.RUST, { depth: 11 }],
+        [PLAYER_TYPE.GO, { depth: 11 }],
       ],
       grid: {
         sizeX: 15,

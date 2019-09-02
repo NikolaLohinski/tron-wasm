@@ -11,7 +11,7 @@ import {
   WMessage,
   WRequestMessage,
   WResultMessage,
-} from '@/workers/types';
+} from '@/bots/types';
 import {ActFunc, Position, UUID} from '@/common/types';
 import {generateUUID} from '@/common/functions';
 import {Player} from '@/common/interfaces';
@@ -79,10 +79,10 @@ export default class Bot implements Player {
   public requestAction(corr: UUID, position: Position, grid: Grid, act: ActFunc): Promise<void> {
     return new Promise((resolve) => {
       if (!this.idle) {
-        throw Error('can not request action of a bot that is not idle');
+        throw Error('can not request action of a src that is not idle');
       }
       if (!this.worker) {
-        throw Error('bot has not been booted');
+        throw Error('src has not been booted');
       }
 
       this.actFunction = act;
@@ -103,7 +103,7 @@ export default class Bot implements Player {
 
   public destroy(): void {
     if (!this.worker) {
-      throw Error('bot has not been booted');
+      throw Error('src has not been booted');
     }
     this.activeRequestResolver = undefined;
     this.worker.terminate();

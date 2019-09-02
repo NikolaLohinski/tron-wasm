@@ -1,6 +1,6 @@
 import {BaseAI} from '@/common/interfaces';
-import {Position, RegisterMoveFunc, Turn} from '@/common/types';
 import {MOVE} from '@/common/constants';
+import {Position, RegisterMoveFunc, Turn} from '@/common/types';
 
 interface Node {
   depth: number;
@@ -21,7 +21,7 @@ interface Context {
 
 const DEFAULT_TS_PLAYER_DEPTH = 5;
 
-export class TypescriptAI extends BaseAI {
+export default class Bot extends BaseAI {
 
   private depth?: number;
   private log: boolean = false;

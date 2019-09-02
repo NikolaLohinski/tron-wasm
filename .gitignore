@@ -1,6 +1,7 @@
 .idea
 .vscode
 node_modules
-dist
-crates/target/*
-crates/*/pkg/*
+build
+src/bots/golang/src/pkg
+src/bots/rust/src/pkg
+src/bots/rust/target

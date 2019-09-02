@@ -48,7 +48,7 @@ export default new Vuex.Store({
     },
     simulation: {
       state: 'RUNNING',
-      turnTimeout: 5000,
+      turnTimeout: 500,
       participants: [
         [PLAYER_TYPE.TS, { depth: 11 }],
         [PLAYER_TYPE.RUST, { depth: 11 }],
@@ -151,7 +151,7 @@ export default new Vuex.Store({
             player: bot,
             performance: {
               depth: 0,
-              duration: 0,
+              durations: [],
             },
           };
         }

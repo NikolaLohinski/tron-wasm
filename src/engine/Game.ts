@@ -1,7 +1,7 @@
 import {generateUUID} from '@/common/functions';
 import {MoveTarget, Performance, Position, UUID} from '@/common/types';
 import {Player} from '@/common/interfaces';
-import {GAME_STATUS, MOVE, PLAYER_TYPE} from '@/common/constants';
+import {GAME_STATUS, MOVE} from '@/common/constants';
 
 import Grid from '@/engine/Grid';
 
@@ -10,7 +10,7 @@ interface Protagonist {
   position: Position;
   move: MOVE;
   depth: number;
-  duration: number;
+  durations: number[];
   dead: boolean;
 }
 
@@ -62,7 +62,7 @@ export default class Game {
         position: { x: -1, y: -1 },
         move: MOVE.FORWARD,
         depth: 0,
-        duration: 0,
+        durations: [],
         dead: false,
       };
     }
@@ -91,7 +91,7 @@ export default class Game {
     }
     return {
       depth: protagonist.depth,
-      duration: protagonist.duration,
+      durations: protagonist.durations,
     };
   }
 
@@ -100,7 +100,7 @@ export default class Game {
       p.player.destroy();
       this.protagonists[userID].position = { x: -1, y: -1 };
       this.protagonists[userID].move = MOVE.FORWARD;
-      this.protagonists[userID].duration = 0;
+      this.protagonists[userID].durations = [];
       this.protagonists[userID].dead = false;
     });
     this.grid.reset();
@@ -152,14 +152,14 @@ export default class Game {
       const correlationID = generateUUID();
 
       this.currentCorrelationID = correlationID;
-      this.referenceTime = new Date().getTime();
+      this.referenceTime = performance.now();
 
       const requests = Object.entries(this.protagonists).filter(([, p]: [UUID, Protagonist]) => {
         return !p.dead;
       }).map(([, protagonist]: [UUID, Protagonist]) => {
         protagonist.move = MOVE.FORWARD;
         protagonist.depth = 0;
-        protagonist.duration = 0;
+        protagonist.durations = [];
 
         const position = protagonist.position;
         const self = this;
@@ -167,7 +167,7 @@ export default class Game {
           if (corr === correlationID) {
             protagonist.move = move;
             protagonist.depth = depth;
-            protagonist.duration = new Date().getTime() - self.referenceTime;
+            protagonist.durations.push(Math.round(performance.now() - self.referenceTime));
           } else {
             // tslint:disable-next-line
             console.error(`received correlation ID (${corr}) differs from current one (${correlationID})`);
@@ -180,7 +180,7 @@ export default class Game {
       let finished = false;
       function finishTurn() {
         if (finished) {
-          return
+          return;
         }
         finished = true;
         const endTurnCorrelationID = generateUUID();

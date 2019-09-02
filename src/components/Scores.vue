@@ -21,7 +21,7 @@ import {PLAYER_TYPE} from "../common/constants";
                     <img :src="require(`@/assets/${getIconName(player.type)}`)" :alt="`${player.type} icon`"/>
                 </td>
                 <td class="depth">{{ player.performance.depth }} / {{ maxDepths[player.id] || player.performance.depth }}</td>
-                <td class="duration">{{ player.performance.duration }} ms</td>
+                <td class="duration">{{ player.performance.durations[player.performance.durations.length - 1] }} ms</td>
                 <td class="victories">{{ victories[player.id] || 0 }}</td>
             </tr>
         </transition-group>

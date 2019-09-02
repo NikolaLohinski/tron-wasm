@@ -25,9 +25,9 @@ export const enum GAME_STATE {
 }
 
 export const enum PLAYER_TYPE {
-    TS = 'TS',
-    RUST = 'RS',
-    GO = 'GO',
+    TS = 'Typescript',
+    RUST = 'Rust',
+    GO = 'Go',
 }
 
 export const COLORS: Color[] = [

@@ -79,7 +79,7 @@ export default class Bot implements Player {
   public requestAction(corr: UUID, position: Position, grid: Grid, act: ActFunc): Promise<void> {
     return new Promise((resolve) => {
       if (!this.idle) {
-        throw Error('can not request action of a src that is not idle');
+        throw Error('can not request action of a bot that is not idle');
       }
       if (!this.worker) {
         throw Error('src has not been booted');

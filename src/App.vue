@@ -1,17 +1,16 @@
 <template>
     <section id="app">
         <transition name="fade">
-            <div class="loader" v-if="loading">
-                <img :src="require('@/assets/tron.png')" class="logo"/>
-            </div>
+            <Loader v-if="loading"/>
             <article class="body" v-else>
                 <div class="playground">
                     <Grid class="grid"/>
                     <Scores class="scores"/>
                 </div>
-                <Actions class="actions"/>
+                <Actions class="actions" @charts="insights = true"/>
             </article>
         </transition>
+        <Insights :opened="insights" @close="insights = false"/>
     </section>
 </template>
 
@@ -21,18 +20,23 @@ import {Component, Vue, Watch} from 'vue-property-decorator';
 import Grid from '@/components/Grid.vue';
 import Scores from '@/components/Scores.vue';
 import Actions from '@/components/Actions.vue';
+import Insights from '@/components/Insights.vue';
 
 import {GAME_STATUS} from '@/common/constants';
+import Loader from '@/components/Loader.vue';
 
 @Component({
     components: {
         Grid,
         Scores,
         Actions,
+        Insights,
+        Loader,
     },
 })
 export default class App extends Vue {
     private loading: boolean = true;
+    private insights: boolean = false;
 
     get status(): GAME_STATUS {
         return this.$store.getters.status;
@@ -58,36 +62,9 @@ export default class App extends Vue {
         bottom: 0;
         left: 0;
         right: 0;
-        background-color: #000;
+        background-color: #0d0d0d;
         color: #ddd;
         font-family: Verdana, Arial, sans-serif;
-        div.loader {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            transition: opacity .2s;
-
-            img.logo {
-                position: absolute;
-                width: 75px;
-                opacity: 0.8;
-                user-select: none;
-                @keyframes rotate360 {
-                    0% {
-                        transform: translate(-50%, -50%) rotate(0) scale(1)
-                    }
-                    50% {
-                        transform: translate(-50%, -50%) rotate(360deg) scale(0.9)
-                    }
-                    100% {
-                        transform: translate(-50%, -50%) rotate(720deg) scale(1)
-                    }
-                }
-                animation: infinite 3s rotate360 linear;
-            }
-        }
-
         article.body {
             position: absolute;
             top: 50%;

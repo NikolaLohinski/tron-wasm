@@ -25,7 +25,7 @@ export interface Protagonist {
 
 export interface Performance {
     depth: number;
-    duration: number;
+    durations: number[];
 }
 
 export interface Simulation {

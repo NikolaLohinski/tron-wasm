@@ -26,7 +26,7 @@ module.exports = {
     ],
   },
   output: {
-    filename: 'golang-src-worker.js',
+    filename: 'golang.worker.js',
   },
   plugins: [
     new Webpack.DefinePlugin({

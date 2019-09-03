@@ -9,7 +9,7 @@ const RustBotWorker = require('./src/bots/rust/webpack.config.js');
 const TypeScriptBotWorker = require('./src/bots/typescript/webpack.config.js');
 
 const SRC = resolve(__dirname, 'src');
-const BUILD = resolve(__dirname, 'build');
+const BUILD = resolve(__dirname, 'docs');
 
 const Main = {
   entry: {

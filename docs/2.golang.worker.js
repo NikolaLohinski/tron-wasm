@@ -1,0 +1,1 @@
+self.webpackChunk([2],{115:function(n,f){},116:function(n,f){},165:function(n,f,t){"use strict";t.r(f);var u=t(164),c=t.n(u);t(73),f.default=c()(fetch("main.wasm").then(n=>n.arrayBuffer()))},78:function(n,f){},80:function(n,f){}});

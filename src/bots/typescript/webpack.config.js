@@ -21,7 +21,7 @@ module.exports = {
     ],
   },
   output: {
-    filename: 'rust-src-worker.js',
+    filename: 'typescript.worker.js',
   },
   resolve: {
     extensions: ['.ts', '.js', '.wasm'],

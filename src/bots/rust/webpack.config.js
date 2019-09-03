@@ -23,7 +23,7 @@ module.exports = {
     ],
   },
   output: {
-    filename: 'rust-src-worker.js',
+    filename: 'rust.worker.js',
   },
   plugins: [
     new WASMPackPlugin({

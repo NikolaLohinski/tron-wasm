@@ -83,7 +83,7 @@ describe('Game', () => {
         test('default', () => {
             const performance = game.getPerformance(firstPlayer.id);
 
-            expect(performance).toEqual({ depth: 0, duration: 0 });
+            expect(performance).toEqual({ depth: 0, durations: [] });
         });
 
         test('when looking for a player that does not exist', () => {
@@ -102,7 +102,7 @@ describe('Game', () => {
                 expect(player.destroy).toHaveBeenCalledTimes(1);
                 expect(game.isDead(player.id)).toBeFalsy();
                 expect(game.getPosition(player.id)).toEqual({ x: -1, y: -1 });
-                expect(game.getPerformance(player.id)).toEqual({ depth: 0, duration: 0 });
+                expect(game.getPerformance(player.id)).toEqual({ depth: 0, durations: [] });
             }
         });
     });

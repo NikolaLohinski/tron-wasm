@@ -5,12 +5,11 @@ import {
   WEvent,
   WResultMessage,
   WRequestMessage,
-  WErrorMessage,
   WIdleMessage,
-} from '@/workers/types';
+} from '@/bots/types';
 import {UUID, Turn, RegisterMoveFunc} from '@/common/types';
 
-import Wrapper from '@/workers/Wrapper';
+import Wrapper from '@/bots/WorkerWrapper';
 import {AI} from '@/common/interfaces';
 import {MOVE} from '@/common/constants';
 import Grid from '@/engine/Grid';
@@ -90,6 +89,8 @@ describe('Wrapper', () => {
       });
 
       test('default', async () => {
+        mockPlayer.play.mockImplementationOnce(() => Promise.resolve());
+
         botWorker.handleWEvent({ data: message } as WEvent);
         await FlushPromises();
 
@@ -113,8 +114,11 @@ describe('Wrapper', () => {
           return Promise.resolve();
         });
         mockPlayer.play.mockImplementationOnce(() => {
-          registerFunction(correlationID, MOVE.FORWARD, 1);
-          registerFunction(correlationID, MOVE.STARBOARD, 2);
+          return new Promise((resolve) => {
+            registerFunction(correlationID, MOVE.FORWARD, 1);
+            registerFunction(correlationID, MOVE.STARBOARD, 2);
+            resolve();
+          });
         });
 
         botWorker.handleWEvent({

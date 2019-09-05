@@ -1,8 +1,0 @@
-9fans.net/go v0.0.0-20181112161441-237454027057 h1:OcHlKWkAMJEF1ndWLGxp5dnJQkYM/YImUOvsBoz6h5E=
-9fans.net/go v0.0.0-20181112161441-237454027057/go.mod h1:diCsxrliIURU9xsYtjCp5AbpQKqdhKmf0ujWDUSkfoY=
-github.com/aaronpowell/webpack-golang-wasm-async-loader v0.1.0 h1:gYymEdYesT3li4DCAuWpDjn41JpnQT+VRqjf80DLOd8=
-github.com/aaronpowell/webpack-golang-wasm-async-loader v0.1.0/go.mod h1:VU4cr4THfNFFVh8sA959Girn/S/BLCTHhNXV7okbWv0=
-github.com/rogpeppe/godef v1.1.1 h1:NujOtt9q9vIClRTB3sCZpavac+NMRaIayzrcz1h4fSE=
-github.com/rogpeppe/godef v1.1.1/go.mod h1:oEo1eMy1VUEHUzUIX4F7IqvMJRiz9UId44mvnR8oPlQ=
-golang.org/x/tools v0.0.0-20181130195746-895048a75ecf h1:1efYtlcDNt7EL138lS6P4KphZ1KEMWvhFa3FsLbTWEY=
-golang.org/x/tools v0.0.0-20181130195746-895048a75ecf/go.mod h1:n7NCudcB/nEzxVGmLbDWY5pfWTLqBcC2KZ6jyYvM4mQ=

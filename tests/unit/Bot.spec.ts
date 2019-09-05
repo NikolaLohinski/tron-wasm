@@ -1,6 +1,6 @@
 import {anything, ClearMockMethods, FlushPromises} from './utils';
 
-import {MESSAGE_TYPE, NATIVE_WORKER_TYPE, WEvent} from '@/workers/types';
+import {MESSAGE_TYPE, NATIVE_WORKER_TYPE, WEvent} from '@/bots/types';
 import {Position, UUID} from '@/common/types';
 import {MOVE, PLAYER_TYPE} from '@/common/constants';
 import Grid from '@/engine/Grid';

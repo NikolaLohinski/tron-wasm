@@ -1,9 +1,9 @@
 import {IWorkerContext} from '@/bots/types';
 import WorkerWrapper from '@/bots/WorkerWrapper';
-import Bot from './Bot';
+import {CppWrapper} from './CppWrapper';
 
 const ctx: IWorkerContext = self as any;
 
-const bot = new WorkerWrapper(ctx, new Bot());
+const bot = new WorkerWrapper(ctx, new CppWrapper());
 
 ctx.onmessage = bot.handleWEvent.bind(bot);

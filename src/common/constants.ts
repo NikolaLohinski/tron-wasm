@@ -28,6 +28,7 @@ export const enum PLAYER_TYPE {
     TS = 'Typescript',
     RUST = 'Rust',
     GO = 'Go',
+    CPP = 'C++',
 }
 
 export const COLORS: Color[] = [

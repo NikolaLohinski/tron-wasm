@@ -1,6 +1,6 @@
 import {IWorkerContext} from '@/bots/types';
 import WorkerWrapper from '@/bots/WorkerWrapper';
-import GoWrapper from '@/bots/golang/GoWrapper';
+import GoWrapper from './GoWrapper';
 
 const ctx: IWorkerContext = self as any;
 

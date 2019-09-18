@@ -65,6 +65,8 @@ export default class Scores extends Vue {
                 return 'rust-wasm.ico';
             case PLAYER_TYPE.GO:
                 return 'go.ico';
+            case PLAYER_TYPE.CPP:
+                return 'cpp.ico';
             default:
                 throw Error(`unknown player type "${type}"`);
         }

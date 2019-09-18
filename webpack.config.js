@@ -7,6 +7,7 @@ const VueLoaderPlugin = require('vue-loader/lib/plugin');
 const GoBotWorker = require('./src/bots/golang/webpack.config.js');
 const RustBotWorker = require('./src/bots/rust/webpack.config.js');
 const TypeScriptBotWorker = require('./src/bots/typescript/webpack.config.js');
+const CppBotWorker = require('./src/bots/cpp/webpack.config.js');
 
 const SRC = resolve(__dirname, 'src');
 const BUILD = resolve(__dirname, 'docs');
@@ -101,6 +102,7 @@ const Main = {
       TYPESCRIPT_BOT_WORKER: JSON.stringify(TypeScriptBotWorker.output.filename),
       RUST_BOT_WORKER: JSON.stringify(RustBotWorker.output.filename),
       GO_BOT_WORKER: JSON.stringify(GoBotWorker.output.filename),
+      CPP_BOT_WORKER: JSON.stringify(CppBotWorker.output.filename),
     }),
     new HTMLWebpackPlugin({
       favicon: join(SRC, 'assets', 'tron.ico'),
@@ -112,7 +114,7 @@ const Main = {
   },
 };
 
-module.exports = [Main, TypeScriptBotWorker, RustBotWorker, GoBotWorker].map((config) => {
+module.exports = [Main, TypeScriptBotWorker, RustBotWorker, GoBotWorker, CppBotWorker].map((config) => {
   config.devServer = {
     contentBase: BUILD,
     publicPath: '/'

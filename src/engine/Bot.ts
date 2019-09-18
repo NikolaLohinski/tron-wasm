@@ -1,6 +1,7 @@
 declare var TYPESCRIPT_BOT_WORKER: string;
 declare var RUST_BOT_WORKER: string;
 declare var GO_BOT_WORKER: string;
+declare var CPP_BOT_WORKER: string;
 
 import {
   IWorker,
@@ -55,6 +56,9 @@ export default class Bot implements Player {
           break;
         case PLAYER_TYPE.GO:
           this.worker = new Worker(GO_BOT_WORKER);
+          break;
+        case PLAYER_TYPE.CPP:
+          this.worker = new Worker(CPP_BOT_WORKER);
           break;
         default:
           throw Error(`unknown player type "${this.type}"`);

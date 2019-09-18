@@ -43,7 +43,7 @@ export default class App extends Vue {
     }
 
     @Watch('status', {immediate: true})
-    private onPersonChanged1(newStatus: GAME_STATUS) {
+    private onNewStatus(newStatus: GAME_STATUS) {
         if (newStatus !== GAME_STATUS.CLEAR) {
             this.loading = false;
         }

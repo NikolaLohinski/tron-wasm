@@ -26,7 +26,7 @@
     "babel-loader": "8.0.6",
     "babel-plugin-syntax-dynamic-import": "6.18.0",
     "c-wasm-loader": "^1.0.0-alpha.2",
-    "chart.js": "2.8.0",
+    "chart.js": "2.9.4",
     "css-loader": "3.2.0",
     "file-loader": "4.2.0",
     "golang-wasm-async-loader": "0.4.1",
